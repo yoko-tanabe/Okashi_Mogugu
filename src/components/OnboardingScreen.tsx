@@ -6,13 +6,15 @@ import { UserProfile } from '@/lib/types';
 import AmbientGlow from './AmbientGlow';
 
 interface Props {
-  onComplete: (profile: Partial<UserProfile>) => void;
+  onComplete: (profile: Partial<UserProfile>, email: string, password: string) => void;
 }
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 export default function OnboardingScreen({ onComplete }: Props) {
   const [step, setStep] = useState(1);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [nationality, setNationality] = useState('');
   const [gender, setGender] = useState('');
@@ -30,14 +32,15 @@ export default function OnboardingScreen({ onComplete }: Props) {
 
   const canProceed = () => {
     switch (step) {
-      case 1: return name.trim() !== '' && nationality !== '';
-      case 2: return gender !== '' && birthYear !== '';
-      case 3: return genderFilter.length > 0;
-      case 4: return selectedTags.length >= 3;
-      case 5: return true;
+      case 1: return email.trim() !== '' && password.length >= 6;
+      case 2: return name.trim() !== '' && nationality !== '';
+      case 3: return gender !== '' && birthYear !== '';
+      case 4: return genderFilter.length > 0;
+      case 5: return selectedTags.length >= 3;
       case 6: return true;
-      case 7: return selectedLanguages.length > 0;
-      case 8: return true;
+      case 7: return true;
+      case 8: return selectedLanguages.length > 0;
+      case 9: return true;
       default: return true;
     }
   };
@@ -60,7 +63,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
       videoLinks: videoLinks.filter(v => v.trim() !== ''),
       languages: selectedLanguages,
       travelStyle,
-    });
+    }, email, password);
   };
 
   const next = () => {
@@ -134,6 +137,24 @@ export default function OnboardingScreen({ onComplete }: Props) {
       {/* Content */}
       <div style={{ flex: 1, padding: '0 24px', position: 'relative', zIndex: 2, overflowY: 'auto', paddingBottom: 100 }}>
         {step === 1 && (
+          <StepContainer title="Create your account" sub="Enter your email and password to get started">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, display: 'block' }}>Email</label>
+                <input className="input-field" type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
+              <div>
+                <label style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, display: 'block' }}>Password</label>
+                <input className="input-field" type="password" placeholder="6 characters minimum" value={password} onChange={e => setPassword(e.target.value)} />
+                {password.length > 0 && password.length < 6 && (
+                  <p style={{ fontSize: 12, color: '#ef4444', marginTop: 6 }}>Password must be at least 6 characters</p>
+                )}
+              </div>
+            </div>
+          </StepContainer>
+        )}
+
+        {step === 2 && (
           <StepContainer title="What's your name?" sub="Tell us your nickname and where you're from">
             <input className="input-field" placeholder="Nickname" value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: 16 }} />
             <label style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, display: 'block' }}>Nationality</label>
@@ -151,7 +172,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
           </StepContainer>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <StepContainer title="About you" sub="Your gender and age (only age range will be shown)">
             <label style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, display: 'block' }}>Gender</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
@@ -170,7 +191,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
           </StepContainer>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <StepContainer title="Who would you like to meet?" sub="Select gender and age range preferences (not shown to others)">
             <label style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, display: 'block' }}>Gender preference</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
@@ -189,7 +210,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
           </StepContainer>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <StepContainer title="Your interests" sub="Select at least 3 tags">
             {HOBBY_TAGS.map(cat => (
               <div key={cat.category} style={{ marginBottom: 20 }}>
@@ -214,7 +235,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
           </StepContainer>
         )}
 
-        {step === 5 && (
+        {step === 6 && (
           <StepContainer title="Free text" sub="Your favorite anime, artists, hobbies - anything!">
             <textarea
               className="input-field"
@@ -226,7 +247,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
           </StepContainer>
         )}
 
-        {step === 6 && (
+        {step === 7 && (
           <StepContainer title="Favorite videos" sub="Share up to 5 video links (YouTube, TikTok, etc.)">
             {videoLinks.map((link, i) => (
               <input
@@ -253,7 +274,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
           </StepContainer>
         )}
 
-        {step === 7 && (
+        {step === 8 && (
           <StepContainer title="Languages & travel style" sub="What languages do you speak?">
             <label style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, display: 'block' }}>Languages</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
@@ -275,7 +296,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
           </StepContainer>
         )}
 
-        {step === 8 && (
+        {step === 9 && (
           <StepContainer title="Location access" sub="We need your location to detect encounters">
             <div className="card-surface" style={{ textAlign: 'center', padding: 32 }}>
               <MapPin size={48} color="#A78BFA" style={{ margin: '0 auto 16px' }} />
