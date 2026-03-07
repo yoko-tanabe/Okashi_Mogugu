@@ -3,16 +3,20 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Check, MapPin } from 'lucide-react';
 import { HOBBY_TAGS, GENDER_OPTIONS, COUNTRIES, LANGUAGES, TRAVEL_STYLES } from '@/lib/constants';
 import { UserProfile } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 import AmbientGlow from './AmbientGlow';
 
 interface Props {
-  onComplete: (profile: Partial<UserProfile>) => void;
+  onComplete: (profile: Partial<UserProfile>) => Promise<void>;
 }
 
 const TOTAL_STEPS = 8;
 
 export default function OnboardingScreen({ onComplete }: Props) {
   const [step, setStep] = useState(1);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [name, setName] = useState('');
   const [nationality, setNationality] = useState('');
   const [gender, setGender] = useState('');
@@ -27,10 +31,23 @@ export default function OnboardingScreen({ onComplete }: Props) {
   const [videoLinks, setVideoLinks] = useState<string[]>(['']);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [travelStyle, setTravelStyle] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const isValidEmail = email.includes('@') && email.includes('.');
+  const isValidPassword = password.length >= 8;
+  const isPasswordConfirmed = password === passwordConfirm;
 
   const canProceed = () => {
     switch (step) {
-      case 1: return name.trim() !== '' && nationality !== '';
+      case 1:
+        return (
+          name.trim() !== ''
+          && nationality !== ''
+          && isValidEmail
+          && isValidPassword
+          && isPasswordConfirmed
+        );
       case 2: return gender !== '' && birthYear !== '';
       case 3: return genderFilter.length > 0;
       case 4: return selectedTags.length >= 3;
@@ -42,30 +59,86 @@ export default function OnboardingScreen({ onComplete }: Props) {
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
+    setIsSubmitting(true);
+    setErrorMessage('');
+
     const bd = `${birthYear}-${(birthMonth || '01').padStart(2, '0')}-${(birthDay || '01').padStart(2, '0')}`;
     const age = new Date().getFullYear() - parseInt(birthYear || '2000');
     const ageGroup = age < 20 ? '10s' : age < 30 ? '20s' : age < 40 ? '30s' : age < 50 ? '40s' : '50s+';
-    onComplete({
-      name,
-      nationality,
-      gender,
-      birthDate: bd,
-      ageGroup,
-      genderFilter,
-      ageRangeMin: ageMin,
-      ageRangeMax: ageMax,
-      hobbyTags: selectedTags,
-      freeText,
-      videoLinks: videoLinks.filter(v => v.trim() !== ''),
-      languages: selectedLanguages,
-      travelStyle,
-    });
+
+    try {
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (signUpError) {
+        throw new Error(signUpError.message);
+      }
+
+      const userId = authData.user?.id;
+      if (!userId) {
+        throw new Error('Auth user id was not returned.');
+      }
+
+      if (!authData.session) {
+        throw new Error('Email confirmation is required. Please confirm your email before continuing.');
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert(
+          {
+            id: userId,
+            name,
+            nationality,
+            gender,
+            birth_date: bd,
+            age_group: ageGroup,
+            gender_filter: genderFilter,
+            age_range_min: ageMin,
+            age_range_max: ageMax,
+            hobby_tags: selectedTags,
+            free_text: freeText,
+            video_links: videoLinks.filter(v => v.trim() !== ''),
+            languages: selectedLanguages,
+            travel_style: travelStyle,
+          },
+          { onConflict: 'id' },
+        );
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+
+      await onComplete({
+        id: userId,
+        name,
+        nationality,
+        gender,
+        birthDate: bd,
+        ageGroup,
+        genderFilter,
+        ageRangeMin: ageMin,
+        ageRangeMax: ageMax,
+        hobbyTags: selectedTags,
+        freeText,
+        videoLinks: videoLinks.filter(v => v.trim() !== ''),
+        languages: selectedLanguages,
+        travelStyle,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to complete onboarding.';
+      setErrorMessage(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const next = () => {
     if (step === TOTAL_STEPS) {
-      handleComplete();
+      void handleComplete();
     } else {
       setStep(s => s + 1);
     }
@@ -134,7 +207,10 @@ export default function OnboardingScreen({ onComplete }: Props) {
       {/* Content */}
       <div style={{ flex: 1, padding: '0 24px', position: 'relative', zIndex: 2, overflowY: 'auto', paddingBottom: 100 }}>
         {step === 1 && (
-          <StepContainer title="What's your name?" sub="Tell us your nickname and where you're from">
+          <StepContainer title="Create account" sub="Set login credentials, then fill your profile">
+            <input className="input-field" placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ marginBottom: 12 }} />
+            <input className="input-field" placeholder="Password (8+ chars)" type="password" value={password} onChange={e => setPassword(e.target.value)} style={{ marginBottom: 12 }} />
+            <input className="input-field" placeholder="Confirm password" type="password" value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} style={{ marginBottom: 16 }} />
             <input className="input-field" placeholder="Nickname" value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: 16 }} />
             <label style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, display: 'block' }}>Nationality</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -306,9 +382,15 @@ export default function OnboardingScreen({ onComplete }: Props) {
           zIndex: 10,
         }}
       >
+        {errorMessage && (
+          <p style={{ color: '#FCA5A5', fontSize: 12, marginRight: 10 }}>
+            {errorMessage}
+          </p>
+        )}
         {step > 1 ? (
           <button
             onClick={() => setStep(s => s - 1)}
+            disabled={isSubmitting}
             style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}
           >
             <ChevronLeft size={18} /> Back
@@ -316,8 +398,8 @@ export default function OnboardingScreen({ onComplete }: Props) {
         ) : (
           <div />
         )}
-        <button className="btn-primary" disabled={!canProceed()} onClick={next}>
-          {step === TOTAL_STEPS ? 'Complete' : 'Next'}
+        <button className="btn-primary" disabled={!canProceed() || isSubmitting} onClick={next}>
+          {step === TOTAL_STEPS ? (isSubmitting ? 'Creating account...' : 'Complete') : 'Next'}
           {step < TOTAL_STEPS && <ChevronRight size={16} style={{ marginLeft: 4, verticalAlign: 'middle' }} />}
         </button>
       </div>
