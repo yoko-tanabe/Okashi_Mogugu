@@ -1,10 +1,10 @@
-import { UserProfile, EncounterCard, MatchEntry, ChatMessage, StampEntry, TokuHistoryEntry } from './types';
+import { UserProfile, EncounterCard, MatchEntry, ChatMessage, TokuHistoryEntry } from './types';
 
 const mockUsers: UserProfile[] = [
   {
     id: 'u1',
-    name: 'Sakura',
-    nationality: 'JP',
+    name: 'Sakuraa',
+    nationality: 'US',
     gender: 'Female',
     birthDate: '1998-03-15',
     ageGroup: '20s',
@@ -182,15 +182,6 @@ export const mockMessages: ChatMessage[] = [
   { id: 'msg4', senderId: 'me', text: 'Sure! How about the cafe near Shibuya?', timestamp: new Date(Date.now() - 18 * 60000).toISOString() },
 ];
 
-export const mockStamps: StampEntry[] = [
-  { id: 's1', nationality: 'JP', flag: '\u{1F1EF}\u{1F1F5}', userName: 'Sakura', date: '2024-01-15', location: 'Shibuya' },
-  { id: 's2', nationality: 'KR', flag: '\u{1F1F0}\u{1F1F7}', userName: 'Min-ji', date: '2024-01-20', location: 'Harajuku' },
-  { id: 's3', nationality: 'US', flag: '\u{1F1FA}\u{1F1F8}', userName: 'Alex', date: '2024-02-03', location: 'Shinjuku' },
-  { id: 's4', nationality: 'FR', flag: '\u{1F1EB}\u{1F1F7}', userName: 'Pierre', date: '2024-02-10', location: 'Asakusa' },
-  { id: 's5', nationality: 'TH', flag: '\u{1F1F9}\u{1F1ED}', userName: 'Nong', date: '2024-02-18', location: 'Ikebukuro' },
-  { id: 's6', nationality: 'AU', flag: '\u{1F1E6}\u{1F1FA}', userName: 'Emma', date: '2024-03-01', location: 'Ueno' },
-];
-
 export const mockTokuHistory: TokuHistoryEntry[] = [
   { id: 't1', action: 'Met someone', points: 30, date: '2024-03-01' },
   { id: 't2', action: 'First meeting with Australian', points: 20, date: '2024-03-01' },
@@ -198,22 +189,3 @@ export const mockTokuHistory: TokuHistoryEntry[] = [
   { id: 't4', action: 'Profile completed', points: 10, date: '2024-01-10' },
 ];
 
-export const mockMyProfile: UserProfile = {
-  id: 'me',
-  name: 'Taro',
-  nationality: 'JP',
-  gender: 'Male',
-  birthDate: '1997-06-20',
-  ageGroup: '20s',
-  hobbyTags: ['Anime', 'K-POP', 'EDM', 'Manga', 'Cosplay'],
-  freeText: 'Demon Slayer, One Piece, BTS, EDM lover',
-  videoLinks: ['https://youtube.com/watch?v=example1'],
-  languages: ['Japanese', 'English'],
-  travelStyle: 'Adventure',
-  genderFilter: ['No preference'],
-  ageRangeMin: 18,
-  ageRangeMax: 40,
-  tokuPoints: 290,
-  avatarUrl: '',
-  wantToMeetMode: true,
-};

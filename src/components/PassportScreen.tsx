@@ -1,24 +1,100 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Share2, X } from 'lucide-react';
 import { useApp } from '@/lib/store';
+import { getSupabase } from '@/lib/supabase';
 import { getTokuLevel, COUNTRIES } from '@/lib/constants';
 import AmbientGlow from './AmbientGlow';
 
 const STAMPS_PER_PAGE = 4;
 
+const STAMP_IMAGES: Record<string, string> = {
+  JP: '/stamps/japan.png',
+  US: '/stamps/usa.png',
+  GB: '/stamps/uk.png',
+  FR: '/stamps/france.png',
+  DE: '/stamps/germany.png',
+  BR: '/stamps/brazil.png',
+  IN: '/stamps/india.png',
+  ES: '/stamps/spain.png',
+  IT: '/stamps/italy.png',
+  SG: '/stamps/singapore.png',
+  CA: '/stamps/canada.png',
+  CN: '/stamps/china.png',
+  KR: '/stamps/korea.png',
+};
+
+interface DbProfile {
+  id: string;
+  name: string;
+  nationality: string;
+  gender: string;
+  age_group: string;
+  toku_points: number;
+  created_at: string;
+}
+
 export default function PassportScreen() {
   const { state } = useApp();
   const [currentPage, setCurrentPage] = useState(0);
   const [direction, setDirection] = useState(0);
+  const [profiles, setProfiles] = useState<DbProfile[]>([]);
+  const [myDbProfile, setMyDbProfile] = useState<DbProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
-  const toku = getTokuLevel(state.myProfile.tokuPoints);
-  const myCountry = COUNTRIES.find(c => c.code === state.myProfile.nationality);
-  const uniqueCountries = new Set(state.stamps.map(s => s.nationality)).size;
+  useEffect(() => {
+    const fetchData = async () => {
+      const { data: { user } } = await getSupabase().auth.getUser();
 
-  const totalPages = Math.ceil(state.stamps.length / STAMPS_PER_PAGE);
-  const currentStamps = state.stamps.slice(
+      const { data: allProfiles } = await getSupabase()
+        .from('profiles')
+        .select('id, name, nationality, gender, age_group, toku_points, created_at');
+
+      if (allProfiles) {
+        if (user) {
+          setMyDbProfile(allProfiles.find(p => p.id === user.id) ?? null);
+          setProfiles(allProfiles.filter(p => p.id !== user.id));
+        } else {
+          setProfiles(allProfiles);
+        }
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
+
+  const myProfile = myDbProfile
+    ? { name: myDbProfile.name, nationality: myDbProfile.nationality, tokuPoints: myDbProfile.toku_points }
+    : state.myProfile;
+
+  const toku = getTokuLevel(myProfile.tokuPoints);
+  const myCountry = COUNTRIES.find(c => c.code === myProfile.nationality);
+  const uniqueCountries = new Set(profiles.map(p => p.nationality)).size;
+
+  // Group profiles by nationality for stamp display
+  const countriesWithProfiles = useMemo(() => {
+    const map = new Map<string, DbProfile[]>();
+    profiles.forEach(p => {
+      const list = map.get(p.nationality) ?? [];
+      list.push(p);
+      map.set(p.nationality, list);
+    });
+    return Array.from(map.entries()).map(([code, people]) => ({ code, people }));
+  }, [profiles]);
+
+  // Stable rotations per country
+  const rotations = useMemo(() => {
+    return countriesWithProfiles.map(c => {
+      let hash = 0;
+      for (let i = 0; i < c.code.length; i++) hash = ((hash << 5) - hash) + c.code.charCodeAt(i);
+      return ((hash % 60) - 30) / 10;
+    });
+  }, [countriesWithProfiles]);
+
+  const totalPages = Math.ceil(countriesWithProfiles.length / STAMPS_PER_PAGE);
+  const currentStamps = countriesWithProfiles.slice(
     currentPage * STAMPS_PER_PAGE,
     (currentPage + 1) * STAMPS_PER_PAGE
   );
@@ -30,8 +106,21 @@ export default function PassportScreen() {
     setCurrentPage(next);
   };
 
+  const getFlag = (code: string) => COUNTRIES.find(c => c.code === code)?.flag ?? '🏳️';
+  const getCountryName = (code: string) => COUNTRIES.find(c => c.code === code)?.name ?? code;
+
+  const selectedPeople = selectedCountry
+    ? profiles.filter(p => p.nationality === selectedCountry)
+    : [];
+
+  if (loading) {
+    return <div className="page-container" style={{ background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: 'var(--text-sub)', fontSize: 14 }}>Loading...</p>
+    </div>;
+  }
+
   return (
-    <div className="page-container" style={{ background: 'var(--bg)', paddingBottom: 80 }}>
+    <div className="page-container" style={{ background: 'var(--bg)', paddingBottom: 80, overflowY: 'auto' }}>
       <AmbientGlow />
 
       <div style={{ padding: '16px 24px', position: 'relative', zIndex: 2 }}>
@@ -66,7 +155,6 @@ export default function PassportScreen() {
           position: 'relative',
           overflow: 'hidden',
         }}>
-          {/* Decorative border */}
           <div style={{
             position: 'absolute',
             inset: 8,
@@ -79,13 +167,13 @@ export default function PassportScreen() {
           <div style={{ fontSize: 12, color: 'var(--accent-light)', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 8 }}>
             Travel Passport
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{state.myProfile.name}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{myProfile.name}</div>
           <div style={{ fontSize: 14, color: 'var(--text-sub)', marginBottom: 16 }}>
             {toku.emoji} {toku.title}
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 32 }}>
             <div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-light)' }}>{state.stamps.length}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-light)' }}>{profiles.length}</div>
               <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>Meetings</div>
             </div>
             <div>
@@ -93,14 +181,14 @@ export default function PassportScreen() {
               <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>Countries</div>
             </div>
             <div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--success)' }}>{state.myProfile.tokuPoints}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--success)' }}>{myProfile.tokuPoints}</div>
               <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>Toku pts</div>
             </div>
           </div>
         </div>
 
         {/* Stamp pages */}
-        {state.stamps.length > 0 ? (
+        {countriesWithProfiles.length > 0 ? (
           <>
             <div style={{ position: 'relative', minHeight: 320, marginBottom: 16 }}>
               <AnimatePresence mode="wait" custom={direction}>
@@ -117,39 +205,54 @@ export default function PassportScreen() {
                     gridTemplateColumns: '1fr 1fr',
                     gap: 16,
                   }}>
-                    {currentStamps.map(stamp => (
-                      <div
-                        key={stamp.id}
-                        style={{
-                          background: 'var(--surface)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 16,
-                          padding: 20,
-                          textAlign: 'center',
-                          position: 'relative',
-                          transform: `rotate(${(Math.random() - 0.5) * 6}deg)`,
-                        }}
-                      >
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>{stamp.flag}</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{stamp.userName}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>{stamp.location}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-hint)', marginTop: 4 }}>{stamp.date}</div>
-                        {/* Stamp circle decoration */}
-                        <div style={{
-                          position: 'absolute',
-                          inset: 6,
-                          border: '2px dashed rgba(167,139,250,0.2)',
-                          borderRadius: 12,
-                          pointerEvents: 'none',
-                        }} />
-                      </div>
-                    ))}
+                    {currentStamps.map((entry, i) => {
+                      const globalIdx = currentPage * STAMPS_PER_PAGE + i;
+                      return (
+                        <button
+                          key={entry.code}
+                          onClick={() => setSelectedCountry(entry.code)}
+                          style={{
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 16,
+                            padding: 12,
+                            textAlign: 'center',
+                            position: 'relative',
+                            transform: `rotate(${rotations[globalIdx]}deg)`,
+                            cursor: 'pointer',
+                            color: 'inherit',
+                          }}
+                        >
+                          {STAMP_IMAGES[entry.code] ? (
+                            <img
+                              src={STAMP_IMAGES[entry.code]}
+                              alt={entry.code}
+                              style={{
+                                width: '100%',
+                                height: 'auto',
+                                maxWidth: 120,
+                                margin: '0 auto',
+                                display: 'block',
+                              }}
+                            />
+                          ) : (
+                            <div style={{ fontSize: 48, padding: 16 }}>{getFlag(entry.code)}</div>
+                          )}
+                          <div style={{
+                            position: 'absolute',
+                            inset: 6,
+                            border: '2px dashed rgba(167,139,250,0.2)',
+                            borderRadius: 12,
+                            pointerEvents: 'none',
+                          }} />
+                        </button>
+                      );
+                    })}
                   </div>
                 </motion.div>
               </AnimatePresence>
             </div>
 
-            {/* Page navigation */}
             {totalPages > 1 && (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16 }}>
                 <button
@@ -203,6 +306,108 @@ export default function PassportScreen() {
           </div>
         )}
       </div>
+
+      {/* Country detail overlay */}
+      <AnimatePresence>
+        {selectedCountry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setSelectedCountry(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.6)',
+              zIndex: 100,
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+            }}
+          >
+            <motion.div
+              initial={{ y: 300 }}
+              animate={{ y: 0 }}
+              exit={{ y: 300 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--bg)',
+                borderRadius: '24px 24px 0 0',
+                width: '100%',
+                maxWidth: 430,
+                maxHeight: '60vh',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '20px 24px 16px',
+                borderBottom: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 24 }}>{getFlag(selectedCountry)}</span>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700 }}>{getCountryName(selectedCountry)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>
+                      {selectedPeople.length} {selectedPeople.length === 1 ? 'person' : 'people'} met
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedCountry(null)}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 10,
+                    width: 36,
+                    height: 36,
+                    cursor: 'pointer',
+                    color: 'var(--text-sub)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* People list */}
+              <div style={{ overflowY: 'auto', padding: '8px 24px 24px' }}>
+                {selectedPeople.map(p => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 0',
+                      borderBottom: '1px solid var(--border)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 600 }}>{p.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>
+                        {p.age_group} · {p.gender}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext } from 'react';
 import { UserProfile, EncounterCard, MatchEntry, ChatMessage, StampEntry, TokuHistoryEntry } from './types';
-import { mockEncounterCards, mockMatches, mockMessages, mockStamps, mockTokuHistory, mockMyProfile } from './mockData';
+import { mockEncounterCards, mockMatches, mockMessages, mockTokuHistory } from './mockData';
 
 export interface AppState {
   myProfile: UserProfile;
@@ -15,11 +15,16 @@ export interface AppState {
 }
 
 export const defaultState: AppState = {
-  myProfile: mockMyProfile,
+  myProfile: {
+    id: '', name: '', nationality: '', gender: '', birthDate: '', ageGroup: '',
+    hobbyTags: [], freeText: '', videoLinks: [], languages: [], travelStyle: '',
+    genderFilter: [], ageRangeMin: 18, ageRangeMax: 40, tokuPoints: 0,
+    avatarUrl: '', wantToMeetMode: true,
+  },
   encounters: mockEncounterCards,
   matches: mockMatches,
   messages: mockMessages,
-  stamps: mockStamps,
+  stamps: [],
   tokuHistory: mockTokuHistory,
   onboarded: false,
   doNotDisturbMode: false,

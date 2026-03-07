@@ -181,7 +181,7 @@ export default function MyProfileScreen() {
         </SectionCard>
 
         {/* Free text */}
-        <SectionCard title="About me">
+        <SectionCard title="Love">
           {editing ? (
             <textarea
               className="input-field"
