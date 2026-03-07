@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  nationality    String   @default("JP")
+  gender         String   @default("Prefer not to say")
+  birthDate      DateTime? @map("birth_date") @db.Date
+  ageGroup       String   @default("20s") @map("age_group")
+  hobbyTags      String[] @map("hobby_tags")
+  freeText       String   @default("") @map("free_text")
+  videoLinks     String[] @map("video_links")
+  languages      String[]
+  travelStyle    String   @default("Sightseeing") @map("travel_style")
+  genderFilter   String[] @default(["No preference"]) @map("gender_filter")
+  ageRangeMin    Int      @default(18) @map("age_range_min")
+  ageRangeMax    Int      @default(99) @map("age_range_max")
+  tokuPoints     Int      @default(0) @map("toku_points")
+  avatarUrl      String   @default("") @map("avatar_url")
+  wantToMeetMode Boolean  @default(true) @map("want_to_meet_mode")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  encountersAsA  Encounter[]   @relation("EncounterUserA")
+  encountersAsB  Encounter[]   @relation("EncounterUserB")
+  swipesGiven    Swipe[]       @relation("Swiper")
+  swipesReceived Swipe[]       @relation("SwipeTarget")
+  matchesAsA     Match[]       @relation("MatchUserA")
+  matchesAsB     Match[]       @relation("MatchUserB")
+  messagesSent   Message[]     @relation("MessageSender")
+  stampsOwned    Stamp[]       @relation("StampOwner")
+  stampsMet      Stamp[]       @relation("StampMetUser")
+  tokuHistory    TokuHistory[] @relation("TokuUser")
+  locationLogs   LocationLog[] @relation("LocationUser")
+  blocksGiven    Block[]       @relation("Blocker")
+  blocksReceived Block[]       @relation("Blocked")
+
+  @@map("profiles")
+}
+
+model Encounter {
+  id             String   @id @default(uuid()) @db.Uuid
+  userAId        String   @map("user_a_id") @db.Uuid
+  userBId        String   @map("user_b_id") @db.Uuid
+  location       String
+  latitude       Float?
+  longitude      Float?
+  distanceMeters Int      @default(0) @map("distance_meters")
+  encounteredAt  DateTime @default(now()) @map("encountered_at") @db.Timestamptz
+  expired        Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  userA  Profile @relation("EncounterUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB  Profile @relation("EncounterUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  swipes Swipe[]
+
+  @@unique([userAId, userBId, encounteredAt])
+  @@index([userAId])
+  @@index([userBId])
+  @@index([encounteredAt])
+  @@map("encounters")
+}
+
+model Swipe {
+  id          String   @id @default(uuid()) @db.Uuid
+  swiperId    String   @map("swiper_id") @db.Uuid
+  targetId    String   @map("target_id") @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  direction   String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  swiper    Profile   @relation("Swiper", fields: [swiperId], references: [id], onDelete: Cascade)
+  target    Profile   @relation("SwipeTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@unique([swiperId, targetId, encounterId])
+  @@index([swiperId])
+  @@index([targetId])
+  @@map("swipes")
+}
+
+model Match {
+  id              String    @id @default(uuid()) @db.Uuid
+  userAId         String    @map("user_a_id") @db.Uuid
+  userBId         String    @map("user_b_id") @db.Uuid
+  status          String    @default("matched")
+  chatOpen        Boolean   @default(true) @map("chat_open")
+  meetConfirmedA  Boolean   @default(false) @map("meet_confirmed_a")
+  meetConfirmedB  Boolean   @default(false) @map("meet_confirmed_b")
+  meetDeadline    DateTime? @map("meet_deadline") @db.Timestamptz
+  metUp           Boolean   @default(false) @map("met_up")
+  matchedAt       DateTime  @default(now()) @map("matched_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  userA    Profile   @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    Profile   @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@map("matches")
+}
+
+model Message {
+  id        String   @id @default(uuid()) @db.Uuid
+  matchId   String   @map("match_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  text      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  match  Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender Profile @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model Stamp {
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerId     String   @map("owner_id") @db.Uuid
+  metUserId   String?  @map("met_user_id") @db.Uuid
+  nationality String
+  userName    String   @map("user_name")
+  location    String   @default("")
+  stampedAt   DateTime @default(now()) @map("stamped_at") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  owner   Profile  @relation("StampOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  metUser Profile? @relation("StampMetUser", fields: [metUserId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@map("stamps")
+}
+
+model TokuHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  action    String
+  points    Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user Profile @relation("TokuUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("toku_history")
+}
+
+model LocationLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  latitude   Float
+  longitude  Float
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz
+
+  user Profile @relation("LocationUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([recordedAt])
+  @@map("location_logs")
+}
+
+model Block {
+  id        String   @id @default(uuid()) @db.Uuid
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  blocker Profile @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked Profile @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@map("blocks")
+}
