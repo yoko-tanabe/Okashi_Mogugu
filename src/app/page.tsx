@@ -1,65 +1,125 @@
-import Image from "next/image";
+'use client';
+import { useReducer, useState } from 'react';
+import { AppContext, appReducer, defaultState } from '@/lib/store';
+import { UserProfile } from '@/lib/types';
+import WelcomeScreen from '@/components/WelcomeScreen';
+import OnboardingScreen from '@/components/OnboardingScreen';
+import HomeScreen from '@/components/HomeScreen';
+import ProfileDetailScreen from '@/components/ProfileDetailScreen';
+import MatchesScreen from '@/components/MatchesScreen';
+import ChatScreen from '@/components/ChatScreen';
+import PassportScreen from '@/components/PassportScreen';
+import MyProfileScreen from '@/components/MyProfileScreen';
+import BottomNav from '@/components/BottomNav';
 
-export default function Home() {
+type Screen =
+  | { type: 'welcome' }
+  | { type: 'onboarding' }
+  | { type: 'home' }
+  | { type: 'profile-detail'; cardId: string }
+  | { type: 'matches' }
+  | { type: 'chat'; matchId: string }
+  | { type: 'passport' }
+  | { type: 'my-profile' };
+
+export default function App() {
+  const [state, dispatch] = useReducer(appReducer, defaultState);
+  const [screen, setScreen] = useState<Screen>({ type: 'welcome' });
+
+  const handleOnboardingComplete = (profile: Partial<UserProfile>) => {
+    dispatch({ type: 'UPDATE_PROFILE', payload: profile });
+    dispatch({ type: 'SET_ONBOARDED' });
+    setScreen({ type: 'home' });
+  };
+
+  const activeTab = (() => {
+    switch (screen.type) {
+      case 'home':
+      case 'profile-detail':
+        return 'home' as const;
+      case 'matches':
+        return 'matches' as const;
+      case 'chat':
+        return 'chat' as const;
+      case 'passport':
+        return 'passport' as const;
+      case 'my-profile':
+        return 'profile' as const;
+      default:
+        return 'home' as const;
+    }
+  })();
+
+  const showNav = !['welcome', 'onboarding'].includes(screen.type);
+  const pendingCount = state.matches.filter(m => m.status === 'pending_received').length;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <AppContext.Provider value={{ state, dispatch }}>
+      <div style={{ background: '#0B0E14', minHeight: '100dvh' }}>
+        {screen.type === 'welcome' && (
+          <WelcomeScreen onStart={() => setScreen({ type: 'onboarding' })} />
+        )}
+
+        {screen.type === 'onboarding' && (
+          <OnboardingScreen onComplete={handleOnboardingComplete} />
+        )}
+
+        {screen.type === 'home' && (
+          <HomeScreen
+            onViewProfile={(cardId) => setScreen({ type: 'profile-detail', cardId })}
+          />
+        )}
+
+        {screen.type === 'profile-detail' && (() => {
+          const card = state.encounters.find(e => e.id === screen.cardId);
+          if (!card) return null;
+          return (
+            <ProfileDetailScreen
+              card={card}
+              onBack={() => setScreen({ type: 'home' })}
+              onLike={() => {
+                dispatch({ type: 'SWIPE_RIGHT', cardId: screen.cardId });
+                setScreen({ type: 'home' });
+              }}
+              onPass={() => {
+                dispatch({ type: 'SWIPE_LEFT', cardId: screen.cardId });
+                setScreen({ type: 'home' });
+              }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          );
+        })()}
+
+        {screen.type === 'matches' && (
+          <MatchesScreen onOpenChat={(matchId) => setScreen({ type: 'chat', matchId })} />
+        )}
+
+        {screen.type === 'chat' && (
+          <ChatScreen
+            matchId={screen.matchId}
+            onBack={() => setScreen({ type: 'matches' })}
+          />
+        )}
+
+        {screen.type === 'passport' && <PassportScreen />}
+
+        {screen.type === 'my-profile' && <MyProfileScreen />}
+
+        {showNav && (
+          <BottomNav
+            active={activeTab}
+            matchCount={pendingCount}
+            onNavigate={(tab) => {
+              switch (tab) {
+                case 'home': setScreen({ type: 'home' }); break;
+                case 'matches': setScreen({ type: 'matches' }); break;
+                case 'chat': setScreen({ type: 'matches' }); break;
+                case 'passport': setScreen({ type: 'passport' }); break;
+                case 'profile': setScreen({ type: 'my-profile' }); break;
+              }
+            }}
+          />
+        )}
+      </div>
+    </AppContext.Provider>
   );
 }
