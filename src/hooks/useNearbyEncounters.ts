@@ -53,9 +53,6 @@ export function useNearbyEncounters(userId: string | null) {
           .gte('recorded_at', since),
       ]);
 
-      console.log('[NearbyEncounters] myLogs:', myResult.data?.length, myResult.error);
-      console.log('[NearbyEncounters] otherLogs:', otherResult.data?.length, otherResult.error);
-
       const myLogs = myResult.data;
       const otherLogs = otherResult.data;
 

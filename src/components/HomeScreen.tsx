@@ -1,19 +1,59 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { useApp } from '@/lib/store';
+import { useNearbyEncounters } from '@/hooks/useNearbyEncounters';
+import { EncounterCard } from '@/lib/types';
 import SwipeCard from './SwipeCard';
 import AmbientGlow from './AmbientGlow';
 
 interface Props {
   onViewProfile: (cardId: string) => void;
+  userId: string | null;
 }
 
-export default function HomeScreen({ onViewProfile }: Props) {
+export default function HomeScreen({ onViewProfile, userId }: Props) {
   const { state, dispatch } = useApp();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { nearbyUsers } = useNearbyEncounters(userId);
 
-  const cards = state.encounters;
+  const nearbyCards = useMemo<EncounterCard[]>(() =>
+    nearbyUsers.map((u) => ({
+      id: u.userId,
+      user: {
+        id: u.userId,
+        name: u.name,
+        nationality: u.nationality,
+        gender: u.gender,
+        birthDate: '',
+        ageGroup: u.ageGroup,
+        hobbyTags: u.hobbyTags,
+        freeText: u.freeText,
+        videoLinks: [],
+        languages: u.languages,
+        travelStyle: u.travelStyle,
+        genderFilter: [],
+        ageRangeMin: 18,
+        ageRangeMax: 99,
+        tokuPoints: u.tokuPoints,
+        avatarUrl: u.avatarUrl,
+        wantToMeetMode: true,
+      },
+      location: '近く',
+      encounteredAt: u.encounteredAt,
+      minutesAgo: Math.floor((Date.now() - new Date(u.encounteredAt).getTime()) / 60000),
+      matchingTags: [],
+      matchingWords: [],
+      distance: 2,
+    })),
+  [nearbyUsers]);
+
+  // 近くにいた人を先頭に、モックデータを後ろに結合
+  const cards = useMemo(() => {
+    const nearbyIds = new Set(nearbyCards.map((c) => c.id));
+    const mockCards = state.encounters.filter((e) => !nearbyIds.has(e.id));
+    return [...nearbyCards, ...mockCards];
+  }, [nearbyCards, state.encounters]);
   const currentCard = cards[currentIndex];
 
   const handleSwipeRight = () => {
