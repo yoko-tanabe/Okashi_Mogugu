@@ -42,11 +42,33 @@ export default function App() {
 
   const handleOnboardingComplete = async (profile: Partial<UserProfile>, email: string, password: string) => {
     setAuthError('');
-    const { error } = await getSupabase().auth.signUp({ email, password });
+    const { data, error } = await getSupabase().auth.signUp({ email, password });
     if (error) {
       setAuthError(error.message);
       return;
     }
+
+    const { error: dbError } = await getSupabase().from('profiles').insert({
+      id: data.user!.id,
+      name: profile.name,
+      nationality: profile.nationality,
+      gender: profile.gender,
+      birth_date: profile.birthDate,
+      age_group: profile.ageGroup,
+      hobby_tags: profile.hobbyTags,
+      free_text: profile.freeText,
+      video_links: profile.videoLinks,
+      languages: profile.languages,
+      travel_style: profile.travelStyle,
+      gender_filter: profile.genderFilter,
+      age_range_min: profile.ageRangeMin,
+      age_range_max: profile.ageRangeMax,
+    });
+    if (dbError) {
+      setAuthError(dbError.message);
+      return;
+    }
+
     dispatch({ type: 'UPDATE_PROFILE', payload: profile });
     dispatch({ type: 'SET_ONBOARDED' });
     setScreen({ type: 'home' });
