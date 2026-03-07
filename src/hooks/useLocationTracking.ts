@@ -2,7 +2,8 @@
 import { useEffect, useRef } from 'react';
 import { getSupabase } from '@/lib/supabase';
 
-const INTERVAL_MS = 30_000;
+// const INTERVAL_MS = 30_000; // 30秒（テスト用）
+const INTERVAL_MS = 60 * 60 * 1_000; // 1時間
 
 export function useLocationTracking(userId: string | null) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
