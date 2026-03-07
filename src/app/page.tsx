@@ -26,7 +26,7 @@ export default function App() {
   const [state, dispatch] = useReducer(appReducer, defaultState);
   const [screen, setScreen] = useState<Screen>({ type: 'welcome' });
 
-  const handleOnboardingComplete = async (profile: Partial<UserProfile>) => {
+  const handleOnboardingComplete = (profile: Partial<UserProfile>) => {
     dispatch({ type: 'UPDATE_PROFILE', payload: profile });
     dispatch({ type: 'SET_ONBOARDED' });
     setScreen({ type: 'home' });
