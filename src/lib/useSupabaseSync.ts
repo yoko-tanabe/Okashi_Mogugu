@@ -30,6 +30,8 @@ export function useSupabaseSync(dispatch: React.Dispatch<AppAction>) {
       if (userId) {
         dispatch({ type: 'SET_LOADING', loading: true });
         await loadAllData(userId, dispatch);
+      } else {
+        dispatch({ type: 'SET_LOADING', loading: false });
       }
     });
 
@@ -37,6 +39,8 @@ export function useSupabaseSync(dispatch: React.Dispatch<AppAction>) {
       if (user) {
         dispatch({ type: 'SET_USER_ID', userId: user.id });
         loadAllData(user.id, dispatch);
+      } else {
+        dispatch({ type: 'SET_LOADING', loading: false });
       }
     });
 

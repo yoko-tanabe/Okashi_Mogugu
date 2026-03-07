@@ -1,9 +1,10 @@
 'use client';
-import { useReducer, useState } from 'react';
+import { useReducer, useState, useEffect } from 'react';
 import { AppContext, appReducer, defaultState } from '@/lib/store';
 import { UserProfile } from '@/lib/types';
 import { useSupabaseSync, useSupabaseActions } from '@/lib/useSupabaseSync';
 import WelcomeScreen from '@/components/WelcomeScreen';
+import AuthScreen from '@/components/AuthScreen';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import HomeScreen from '@/components/HomeScreen';
 import ProfileDetailScreen from '@/components/ProfileDetailScreen';
@@ -15,6 +16,7 @@ import BottomNav from '@/components/BottomNav';
 
 type Screen =
   | { type: 'welcome' }
+  | { type: 'auth' }
   | { type: 'onboarding' }
   | { type: 'home' }
   | { type: 'profile-detail'; cardId: string }
@@ -30,6 +32,14 @@ export default function App() {
   // Sync with Supabase when configured
   useSupabaseSync(dispatch);
   const { saveProfile, swipe } = useSupabaseActions(state.userId, state.myProfile);
+
+  // Auto-navigate when auth state resolves
+  useEffect(() => {
+    if (state.loading) return;
+    if (state.userId && state.onboarded && screen.type === 'welcome') {
+      setScreen({ type: 'home' });
+    }
+  }, [state.loading, state.userId, state.onboarded, screen.type]);
 
   const handleOnboardingComplete = async (profile: Partial<UserProfile>) => {
     dispatch({ type: 'UPDATE_PROFILE', payload: profile });
@@ -79,7 +89,7 @@ export default function App() {
     }
   })();
 
-  const showNav = !['welcome', 'onboarding'].includes(screen.type);
+  const showNav = !['welcome', 'auth', 'onboarding'].includes(screen.type);
   const pendingCount = state.matches.filter(m => m.status === 'pending_received').length;
 
   if (state.loading) {
@@ -94,7 +104,17 @@ export default function App() {
     <AppContext.Provider value={{ state, dispatch }}>
       <div style={{ background: '#0B0E14', minHeight: '100dvh' }}>
         {screen.type === 'welcome' && (
-          <WelcomeScreen onStart={() => setScreen({ type: 'onboarding' })} />
+          <WelcomeScreen onStart={() => setScreen({ type: 'auth' })} />
+        )}
+
+        {screen.type === 'auth' && (
+          <AuthScreen onAuthenticated={() => {
+            if (state.onboarded) {
+              setScreen({ type: 'home' });
+            } else {
+              setScreen({ type: 'onboarding' });
+            }
+          }} />
         )}
 
         {screen.type === 'onboarding' && (
