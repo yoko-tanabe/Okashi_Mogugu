@@ -46,24 +46,6 @@ export default function HomeScreen({ onViewProfile }: Props) {
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>
           <span className="gradient-text">Encounters</span>
         </h1>
-        <button
-          onClick={() => dispatch({ type: 'TOGGLE_DND' })}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            background: state.doNotDisturbMode ? 'rgba(239,68,68,0.15)' : 'var(--surface)',
-            border: `1px solid ${state.doNotDisturbMode ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
-            borderRadius: 20,
-            padding: '8px 14px',
-            color: state.doNotDisturbMode ? '#EF4444' : 'var(--text-sub)',
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          {state.doNotDisturbMode ? <Pause size={14} /> : <Play size={14} />}
-          {state.doNotDisturbMode ? 'Paused' : 'Active'}
-        </button>
       </div>
 
       {/* Card stack */}
@@ -81,7 +63,7 @@ export default function HomeScreen({ onViewProfile }: Props) {
           }}>
             <Pause size={48} color="rgba(255,255,255,0.15)" />
             <p style={{ fontSize: 16 }}>Do Not Disturb mode is ON</p>
-            <p style={{ fontSize: 13 }}>Tap the button above to resume</p>
+            <p style={{ fontSize: 13 }}>Tap the button below to resume</p>
           </div>
         ) : cards.length === 0 ? (
           <div style={{
@@ -131,6 +113,34 @@ export default function HomeScreen({ onViewProfile }: Props) {
             )}
           </>
         )}
+      </div>
+
+      {/* Active/Paused button */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '12px 0',
+        position: 'relative',
+        zIndex: 10,
+      }}>
+        <button
+          onClick={() => dispatch({ type: 'TOGGLE_DND' })}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            background: state.doNotDisturbMode ? 'rgba(239,68,68,0.15)' : 'var(--surface)',
+            border: `1px solid ${state.doNotDisturbMode ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
+            borderRadius: 20,
+            padding: '8px 14px',
+            color: state.doNotDisturbMode ? '#EF4444' : 'var(--text-sub)',
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          {state.doNotDisturbMode ? <Pause size={14} /> : <Play size={14} />}
+          {state.doNotDisturbMode ? 'Paused' : 'Active'}
+        </button>
       </div>
 
       {/* Action buttons */}
