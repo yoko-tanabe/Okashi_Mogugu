@@ -12,25 +12,17 @@ export interface AppState {
   tokuHistory: TokuHistoryEntry[];
   onboarded: boolean;
   doNotDisturbMode: boolean;
-  userId: string | null;
-  loading: boolean;
 }
 
-import { isSupabaseConfigured } from './supabase';
-
 export const defaultState: AppState = {
-  myProfile: isSupabaseConfigured
-    ? { id: '', name: '', nationality: 'JP', gender: '', birthDate: '', ageGroup: '', hobbyTags: [], freeText: '', videoLinks: [], languages: [], travelStyle: '', genderFilter: ['No preference'], ageRangeMin: 18, ageRangeMax: 99, tokuPoints: 0, avatarUrl: '', wantToMeetMode: true }
-    : mockMyProfile,
-  encounters: isSupabaseConfigured ? [] : mockEncounterCards,
-  matches: isSupabaseConfigured ? [] : mockMatches,
-  messages: isSupabaseConfigured ? [] : mockMessages,
-  stamps: isSupabaseConfigured ? [] : mockStamps,
-  tokuHistory: isSupabaseConfigured ? [] : mockTokuHistory,
+  myProfile: mockMyProfile,
+  encounters: mockEncounterCards,
+  matches: mockMatches,
+  messages: mockMessages,
+  stamps: mockStamps,
+  tokuHistory: mockTokuHistory,
   onboarded: false,
   doNotDisturbMode: false,
-  userId: null,
-  loading: isSupabaseConfigured,
 };
 
 export type AppAction =
@@ -42,14 +34,7 @@ export type AppAction =
   | { type: 'SEND_MESSAGE'; message: ChatMessage }
   | { type: 'CONFIRM_MEET'; matchId: string }
   | { type: 'MET_UP'; matchId: string }
-  | { type: 'ADD_STAMP'; stamp: StampEntry }
-  | { type: 'SET_USER_ID'; userId: string | null }
-  | { type: 'SET_LOADING'; loading: boolean }
-  | { type: 'LOAD_DATA'; payload: Partial<AppState> }
-  | { type: 'SET_ENCOUNTERS'; encounters: EncounterCard[] }
-  | { type: 'SET_MATCHES'; matches: MatchEntry[] }
-  | { type: 'SET_MESSAGES'; messages: ChatMessage[] }
-  | { type: 'ADD_MATCH'; match: MatchEntry };
+  | { type: 'ADD_STAMP'; stamp: StampEntry };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -105,20 +90,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         myProfile: { ...state.myProfile, tokuPoints: state.myProfile.tokuPoints + 30 },
       };
     }
-    case 'SET_USER_ID':
-      return { ...state, userId: action.userId };
-    case 'SET_LOADING':
-      return { ...state, loading: action.loading };
-    case 'LOAD_DATA':
-      return { ...state, ...action.payload, loading: false };
-    case 'SET_ENCOUNTERS':
-      return { ...state, encounters: action.encounters };
-    case 'SET_MATCHES':
-      return { ...state, matches: action.matches };
-    case 'SET_MESSAGES':
-      return { ...state, messages: action.messages };
-    case 'ADD_MATCH':
-      return { ...state, matches: [...state.matches, action.match] };
     default:
       return state;
   }
