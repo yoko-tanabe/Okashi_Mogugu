@@ -14,6 +14,7 @@ import PassportScreen from '@/components/PassportScreen';
 import MyProfileScreen from '@/components/MyProfileScreen';
 import BottomNav from '@/components/BottomNav';
 
+
 type Screen =
   | { type: 'welcome' }
   | { type: 'auth' }
