@@ -2,6 +2,7 @@
 import { useReducer, useState } from 'react';
 import { AppContext, appReducer, defaultState } from '@/lib/store';
 import { UserProfile } from '@/lib/types';
+import { useSupabaseSync, useSupabaseActions } from '@/lib/useSupabaseSync';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import HomeScreen from '@/components/HomeScreen';
@@ -26,10 +27,38 @@ export default function App() {
   const [state, dispatch] = useReducer(appReducer, defaultState);
   const [screen, setScreen] = useState<Screen>({ type: 'welcome' });
 
-  const handleOnboardingComplete = (profile: Partial<UserProfile>) => {
+  // Sync with Supabase when configured
+  useSupabaseSync(dispatch);
+  const { saveProfile, swipe } = useSupabaseActions(state.userId, state.myProfile);
+
+  const handleOnboardingComplete = async (profile: Partial<UserProfile>) => {
     dispatch({ type: 'UPDATE_PROFILE', payload: profile });
     dispatch({ type: 'SET_ONBOARDED' });
+    await saveProfile(profile);
     setScreen({ type: 'home' });
+  };
+
+  const handleSwipeRight = async (cardId: string) => {
+    const card = state.encounters.find(e => e.id === cardId);
+    dispatch({ type: 'SWIPE_RIGHT', cardId });
+    if (card) {
+      const result = await swipe(cardId, card.user.id, 'right');
+      if (result.matched && result.matchId) {
+        dispatch({
+          type: 'ADD_MATCH',
+          match: { id: result.matchId, user: card.user, matchedAt: new Date().toISOString(), status: 'matched', chatOpen: true },
+        });
+      }
+    }
+    setScreen({ type: 'home' });
+  };
+
+  const handleSwipeLeft = async (cardId: string) => {
+    const card = state.encounters.find(e => e.id === cardId);
+    dispatch({ type: 'SWIPE_LEFT', cardId });
+    if (card) {
+      await swipe(cardId, card.user.id, 'left');
+    }
   };
 
   const activeTab = (() => {
@@ -52,6 +81,14 @@ export default function App() {
 
   const showNav = !['welcome', 'onboarding'].includes(screen.type);
   const pendingCount = state.matches.filter(m => m.status === 'pending_received').length;
+
+  if (state.loading) {
+    return (
+      <div style={{ background: '#0B0E14', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16 }}>Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
@@ -77,12 +114,9 @@ export default function App() {
             <ProfileDetailScreen
               card={card}
               onBack={() => setScreen({ type: 'home' })}
-              onLike={() => {
-                dispatch({ type: 'SWIPE_RIGHT', cardId: screen.cardId });
-                setScreen({ type: 'home' });
-              }}
+              onLike={() => handleSwipeRight(screen.cardId)}
               onPass={() => {
-                dispatch({ type: 'SWIPE_LEFT', cardId: screen.cardId });
+                handleSwipeLeft(screen.cardId);
                 setScreen({ type: 'home' });
               }}
             />
