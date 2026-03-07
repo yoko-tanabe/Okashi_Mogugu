@@ -141,6 +141,7 @@ export default function App() {
         {screen.type === 'home' && (
           <HomeScreen
             onViewProfile={(cardId) => setScreen({ type: 'profile-detail', cardId })}
+            userId={userId}
           />
         )}
 
@@ -164,7 +165,7 @@ export default function App() {
         })()}
 
         {screen.type === 'matches' && (
-          <MatchesScreen onOpenChat={(matchId) => setScreen({ type: 'chat', matchId })} />
+          <MatchesScreen onOpenChat={(matchId) => setScreen({ type: 'chat', matchId })} userId={userId} />
         )}
 
         {screen.type === 'chat' && (
