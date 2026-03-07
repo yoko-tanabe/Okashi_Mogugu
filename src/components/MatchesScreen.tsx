@@ -145,7 +145,7 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <MapPin size={12} />
-                        <span>2m以内 · {timeAgo}</span>
+                        <span>{u.address ? u.address : '2m以内'} · {timeAgo}</span>
                       </div>
                       {u.hobbyTags.length > 0 && (
                         <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>
