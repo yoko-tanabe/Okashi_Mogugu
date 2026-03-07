@@ -37,33 +37,12 @@ export default function HomeScreen({ onViewProfile }: Props) {
       {/* Header */}
       <div style={{
         padding: '16px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         position: 'relative',
         zIndex: 10,
       }}>
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>
           <span className="gradient-text">Encounters</span>
         </h1>
-        <button
-          onClick={() => dispatch({ type: 'TOGGLE_DND' })}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            background: state.doNotDisturbMode ? 'rgba(239,68,68,0.15)' : 'var(--surface)',
-            border: `1px solid ${state.doNotDisturbMode ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
-            borderRadius: 20,
-            padding: '8px 14px',
-            color: state.doNotDisturbMode ? '#EF4444' : 'var(--text-sub)',
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          {state.doNotDisturbMode ? <Pause size={14} /> : <Play size={14} />}
-          {state.doNotDisturbMode ? 'Paused' : 'Active'}
-        </button>
       </div>
 
       {/* Card stack */}
@@ -181,6 +160,41 @@ export default function HomeScreen({ onViewProfile }: Props) {
           </button>
         </div>
       )}
+
+      {/* Active / Paused toggle button */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '12px 24px 24px',
+        position: 'relative',
+        zIndex: 10,
+      }}>
+        <button
+          onClick={() => dispatch({ type: 'TOGGLE_DND' })}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            width: '100%',
+            maxWidth: 320,
+            padding: '18px 24px',
+            borderRadius: 16,
+            background: state.doNotDisturbMode
+              ? 'rgba(239,68,68,0.15)'
+              : 'linear-gradient(135deg, rgba(124,92,252,0.25), rgba(245,158,66,0.2))',
+            border: `2px solid ${state.doNotDisturbMode ? 'rgba(239,68,68,0.5)' : 'rgba(124,92,252,0.5)'}`,
+            color: state.doNotDisturbMode ? '#EF4444' : 'var(--accent-light)',
+            fontSize: 18,
+            fontWeight: 700,
+            cursor: 'pointer',
+            letterSpacing: 0.5,
+          }}
+        >
+          {state.doNotDisturbMode ? <Pause size={22} /> : <Play size={22} />}
+          {state.doNotDisturbMode ? 'Paused' : 'Active'}
+        </button>
+      </div>
     </div>
   );
 }
