@@ -4,9 +4,10 @@ import Logo from './Logo';
 
 interface Props {
   onStart: () => void;
+  onLogin: () => void;
 }
 
-export default function WelcomeScreen({ onStart }: Props) {
+export default function WelcomeScreen({ onStart, onLogin }: Props) {
   return (
     <div className="page-container" style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Background photo overlay */}
@@ -78,6 +79,23 @@ export default function WelcomeScreen({ onStart }: Props) {
 
         <button className="btn-gradient" onClick={onStart} style={{ marginTop: 32 }}>
           Get Started
+        </button>
+        <button
+          onClick={onLogin}
+          style={{
+            marginTop: 12,
+            background: 'none',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 14,
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: 600,
+            padding: '14px 0',
+            width: '100%',
+            cursor: 'pointer',
+          }}
+        >
+          Log In
         </button>
       </div>
     </div>

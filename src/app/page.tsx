@@ -1,8 +1,10 @@
 'use client';
-import { useReducer, useState } from 'react';
+import { useReducer, useState, useEffect } from 'react';
 import { AppContext, appReducer, defaultState } from '@/lib/store';
 import { UserProfile } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 import WelcomeScreen from '@/components/WelcomeScreen';
+import LoginScreen from '@/components/LoginScreen';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import HomeScreen from '@/components/HomeScreen';
 import ProfileDetailScreen from '@/components/ProfileDetailScreen';
@@ -14,6 +16,7 @@ import BottomNav from '@/components/BottomNav';
 
 type Screen =
   | { type: 'welcome' }
+  | { type: 'login' }
   | { type: 'onboarding' }
   | { type: 'home' }
   | { type: 'profile-detail'; cardId: string }
@@ -25,10 +28,37 @@ type Screen =
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, defaultState);
   const [screen, setScreen] = useState<Screen>({ type: 'welcome' });
+  const [authError, setAuthError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const handleOnboardingComplete = (profile: Partial<UserProfile>) => {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setScreen({ type: 'home' });
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  const handleOnboardingComplete = async (profile: Partial<UserProfile>, email: string, password: string) => {
+    setAuthError('');
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
     dispatch({ type: 'UPDATE_PROFILE', payload: profile });
     dispatch({ type: 'SET_ONBOARDED' });
+    setScreen({ type: 'home' });
+  };
+
+  const handleLogin = async (email: string, password: string) => {
+    setAuthError('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
     setScreen({ type: 'home' });
   };
 
@@ -50,14 +80,29 @@ export default function App() {
     }
   })();
 
-  const showNav = !['welcome', 'onboarding'].includes(screen.type);
+  const showNav = !['welcome', 'login', 'onboarding'].includes(screen.type);
   const pendingCount = state.matches.filter(m => m.status === 'pending_received').length;
+
+  if (loading) {
+    return <div style={{ background: '#0B0E14', minHeight: '100dvh' }} />;
+  }
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
       <div style={{ background: '#0B0E14', minHeight: '100dvh' }}>
         {screen.type === 'welcome' && (
-          <WelcomeScreen onStart={() => setScreen({ type: 'onboarding' })} />
+          <WelcomeScreen
+            onStart={() => setScreen({ type: 'onboarding' })}
+            onLogin={() => setScreen({ type: 'login' })}
+          />
+        )}
+
+        {screen.type === 'login' && (
+          <LoginScreen
+            onBack={() => setScreen({ type: 'welcome' })}
+            onLogin={handleLogin}
+            error={authError}
+          />
         )}
 
         {screen.type === 'onboarding' && (
