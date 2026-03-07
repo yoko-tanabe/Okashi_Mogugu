@@ -2,7 +2,7 @@
 import { useReducer, useState, useEffect } from 'react';
 import { AppContext, appReducer, defaultState } from '@/lib/store';
 import { UserProfile } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import LoginScreen from '@/components/LoginScreen';
 import OnboardingScreen from '@/components/OnboardingScreen';
@@ -32,7 +32,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    getSupabase().auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setScreen({ type: 'home' });
       }
@@ -42,7 +42,7 @@ export default function App() {
 
   const handleOnboardingComplete = async (profile: Partial<UserProfile>, email: string, password: string) => {
     setAuthError('');
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await getSupabase().auth.signUp({ email, password });
     if (error) {
       setAuthError(error.message);
       return;
@@ -54,7 +54,7 @@ export default function App() {
 
   const handleLogin = async (email: string, password: string) => {
     setAuthError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
     if (error) {
       setAuthError(error.message);
       return;
