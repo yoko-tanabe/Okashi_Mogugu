@@ -15,6 +15,7 @@ export interface NearbyUser {
   travelStyle: string;
   tokuPoints: number;
   avatarUrl: string;
+  address: string;
 }
 
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -35,7 +36,7 @@ export function useNearbyEncounters(userId: string | null) {
   useEffect(() => {
     if (!userId) return;
 
-    const fetch = async () => {
+    const loadNearby = async () => {
       setLoading(true);
 
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -62,7 +63,7 @@ export function useNearbyEncounters(userId: string | null) {
       }
 
       // Find users who were within 2m within 2 minutes
-      const matched = new Map<string, string>(); // userId -> encounteredAt
+      const matched = new Map<string, { encounteredAt: string; midLat: number; midLon: number }>();
 
       for (const mine of myLogs) {
         const myTime = new Date(mine.recorded_at).getTime();
@@ -72,7 +73,11 @@ export function useNearbyEncounters(userId: string | null) {
           if (timeDiffMin > 2) continue;
           const dist = haversineMeters(mine.latitude, mine.longitude, other.latitude, other.longitude);
           if (dist <= 2) {
-            matched.set(other.user_id, other.recorded_at);
+            matched.set(other.user_id, {
+              encounteredAt: other.recorded_at,
+              midLat: (mine.latitude + other.latitude) / 2,
+              midLon: (mine.longitude + other.longitude) / 2,
+            });
           }
         }
       }
@@ -88,13 +93,34 @@ export function useNearbyEncounters(userId: string | null) {
         .select('id, name, nationality, gender, age_group, hobby_tags, free_text, languages, travel_style, toku_points, avatar_url')
         .in('id', userIds);
 
+      // Fetch addresses from Nominatim for each midpoint
+      const addressMap = new Map<string, string>();
+      await Promise.all(
+        userIds.map(async (uid) => {
+          const info = matched.get(uid)!;
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${info.midLat}&lon=${info.midLon}`,
+              { headers: { 'Accept-Language': 'ja', 'User-Agent': 'OkashiMoguguApp/1.0' } }
+            );
+            const json = await res.json();
+            const a = json.address ?? {};
+            const parts = [a.road, a.suburb ?? a.neighbourhood, a.city ?? a.town ?? a.village].filter(Boolean);
+            addressMap.set(uid, parts.length > 0 ? parts.join(', ') : (json.display_name ?? ''));
+          } catch {
+            addressMap.set(uid, '');
+          }
+        })
+      );
+
       const result: NearbyUser[] = userIds
         .map((uid) => {
           const p = profiles?.find((x) => x.id === uid);
           if (!p) return null;
+          const info = matched.get(uid)!;
           return {
             userId: uid,
-            encounteredAt: matched.get(uid)!,
+            encounteredAt: info.encounteredAt,
             name: p.name ?? '',
             nationality: p.nationality ?? '',
             gender: p.gender ?? '',
@@ -105,15 +131,43 @@ export function useNearbyEncounters(userId: string | null) {
             travelStyle: p.travel_style ?? '',
             tokuPoints: p.toku_points ?? 0,
             avatarUrl: p.avatar_url ?? '',
+            address: addressMap.get(uid) ?? '',
           };
         })
         .filter(Boolean) as NearbyUser[];
+
+      // Save encounters to Supabase (upsert to avoid duplicates)
+      const encounterRows = result.map((u) => {
+        const info = matched.get(u.userId)!;
+        return {
+          id: crypto.randomUUID(),
+          user_a_id: userId,
+          user_b_id: u.userId,
+          encountered_at: info.encounteredAt,
+          location: u.address || '',
+          latitude: info.midLat,
+          longitude: info.midLon,
+          distance_meters: 2,
+          expired: false,
+        };
+      });
+      if (encounterRows.length > 0) {
+        await getSupabase()
+          .from('encounters')
+          .insert(encounterRows)
+          .then(({ error }) => {
+            // Ignore unique constraint violations (duplicate encounters)
+            if (error && error.code !== '23505') {
+              console.error('Failed to save encounters:', error);
+            }
+          });
+      }
 
       setNearbyUsers(result);
       setLoading(false);
     };
 
-    fetch();
+    loadNearby();
   }, [userId]);
 
   return { nearbyUsers, loading };
