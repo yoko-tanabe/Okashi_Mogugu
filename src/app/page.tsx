@@ -3,6 +3,7 @@ import { useReducer, useState, useEffect } from 'react';
 import { AppContext, appReducer, defaultState } from '@/lib/store';
 import { UserProfile } from '@/lib/types';
 import { getSupabase } from '@/lib/supabase';
+import { useLocationTracking } from '@/hooks/useLocationTracking';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import LoginScreen from '@/components/LoginScreen';
 import OnboardingScreen from '@/components/OnboardingScreen';
@@ -30,10 +31,14 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>({ type: 'welcome' });
   const [authError, setAuthError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useLocationTracking(userId);
 
   useEffect(() => {
     getSupabase().auth.getSession().then(({ data: { session } }) => {
       if (session) {
+        setUserId(session.user.id);
         setScreen({ type: 'home' });
       }
       setLoading(false);
@@ -69,6 +74,7 @@ export default function App() {
       return;
     }
 
+    setUserId(data.user!.id);
     dispatch({ type: 'UPDATE_PROFILE', payload: profile });
     dispatch({ type: 'SET_ONBOARDED' });
     setScreen({ type: 'home' });
@@ -76,11 +82,12 @@ export default function App() {
 
   const handleLogin = async (email: string, password: string) => {
     setAuthError('');
-    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+    const { data, error } = await getSupabase().auth.signInWithPassword({ email, password });
     if (error) {
       setAuthError(error.message);
       return;
     }
+    setUserId(data.user.id);
     setScreen({ type: 'home' });
   };
 
