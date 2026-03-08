@@ -45,7 +45,7 @@ export default function App() {
     });
   }, []);
 
-  const handleOnboardingComplete = async (profile: Partial<UserProfile>, email: string, password: string, photoFile?: File) => {
+  const handleOnboardingComplete = async (profile: Partial<UserProfile>, email: string, password: string, photoFile?: File, favoriteImageFiles?: File[]) => {
     setAuthError('');
     const { data, error } = await getSupabase().auth.signUp({ email, password });
     if (error) {
@@ -83,6 +83,18 @@ export default function App() {
       if (uploadRes.ok) {
         const { avatarUrl } = await uploadRes.json();
         await getSupabase().from('profiles').update({ avatar_url: avatarUrl }).eq('id', data.user!.id);
+      }
+    }
+
+    // Upload favorite images if provided
+    if (favoriteImageFiles && favoriteImageFiles.length > 0) {
+      const formData = new FormData();
+      favoriteImageFiles.forEach(f => formData.append('files', f));
+      formData.append('userId', data.user!.id);
+      const uploadRes = await fetch('/api/upload-favorite', { method: 'POST', body: formData });
+      if (uploadRes.ok) {
+        const { imageUrls } = await uploadRes.json();
+        await getSupabase().from('profiles').update({ favorite_images: imageUrls }).eq('id', data.user!.id);
       }
     }
 

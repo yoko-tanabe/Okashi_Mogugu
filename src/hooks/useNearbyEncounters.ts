@@ -16,6 +16,7 @@ export interface NearbyUser {
   tokuPoints: number;
   avatarUrl: string;
   videoLinks: string[];
+  favoriteImages: string[];
   address: string;
 }
 
@@ -99,7 +100,7 @@ export function useNearbyEncounters(userId: string | null) {
       const userIds = Array.from(matched.keys());
       const { data: profiles, error: profilesError } = await getSupabase()
         .from('profiles')
-        .select('id, name, nationality, gender, age_group, hobby_tags, free_text, languages, travel_style, toku_points, avatar_url, video_links')
+        .select('id, name, nationality, gender, age_group, hobby_tags, free_text, languages, travel_style, toku_points, avatar_url, video_links, favorite_images')
         .in('id', userIds);
       console.log('[Encounter] profiles fetched:', profiles?.map(p => p.id), 'error:', profilesError);
 
@@ -141,6 +142,7 @@ export function useNearbyEncounters(userId: string | null) {
             tokuPoints: p.toku_points ?? 0,
             avatarUrl: p.avatar_url ?? '',
             videoLinks: p.video_links ?? [],
+            favoriteImages: p.favorite_images ?? [],
             address: addressMap.get(uid) ?? '',
           };
         })

@@ -30,6 +30,7 @@ export default function HomeScreen({ onViewProfile, userId }: Props) {
         hobbyTags: u.hobbyTags,
         freeText: u.freeText,
         videoLinks: u.videoLinks,
+        favoriteImages: u.favoriteImages,
         languages: u.languages,
         travelStyle: u.travelStyle,
         genderFilter: [],
@@ -179,9 +180,14 @@ export default function HomeScreen({ onViewProfile, userId }: Props) {
           display: 'flex',
           justifyContent: 'center',
           gap: 32,
-          padding: '20px 0',
-          position: 'relative',
-          zIndex: 10,
+          position: 'fixed',
+          bottom: 'calc(56px + env(safe-area-inset-bottom) + 12px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '100%',
+          maxWidth: 430,
+          zIndex: 40,
+          marginBottom: 40,
         }}>
           <button
             onClick={handleSwipeLeft}
@@ -189,14 +195,15 @@ export default function HomeScreen({ onViewProfile, userId }: Props) {
               width: 60,
               height: 60,
               borderRadius: '50%',
-              background: 'rgba(239,68,68,0.1)',
-              border: '2px solid rgba(239,68,68,0.3)',
-              color: '#EF4444',
+              background: 'rgba(120,113,140,0.1)',
+              border: '1.5px solid rgba(120,113,140,0.3)',
+              color: '#8E86A4',
               fontSize: 24,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              backdropFilter: 'blur(12px)',
             }}
           >
             ✕
@@ -207,14 +214,15 @@ export default function HomeScreen({ onViewProfile, userId }: Props) {
               width: 60,
               height: 60,
               borderRadius: '50%',
-              background: 'rgba(74,222,128,0.1)',
-              border: '2px solid rgba(74,222,128,0.3)',
-              color: '#4ADE80',
+              background: 'linear-gradient(135deg, rgba(167,139,250,0.15), rgba(251,185,105,0.1))',
+              border: '1.5px solid rgba(167,139,250,0.35)',
+              color: '#A78BFA',
               fontSize: 24,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              backdropFilter: 'blur(12px)',
             }}
           >
             ♥

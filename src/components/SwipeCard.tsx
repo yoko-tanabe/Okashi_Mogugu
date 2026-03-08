@@ -1,7 +1,7 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
-import { MapPin, User } from 'lucide-react';
+import { MapPin, User, Heart, X } from 'lucide-react';
 import { EncounterCard } from '@/lib/types';
 import { getTokuLevel, COUNTRIES } from '@/lib/constants';
 
@@ -14,9 +14,13 @@ interface Props {
 
 export default function SwipeCard({ card, onSwipeRight, onSwipeLeft, onTap }: Props) {
   const x = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-15, 15]);
-  const likeOpacity = useTransform(x, [0, 100], [0, 1]);
-  const passOpacity = useTransform(x, [-100, 0], [1, 0]);
+  const rotate = useTransform(x, [-200, 200], [-8, 8]);
+  const likeOpacity = useTransform(x, [0, 80], [0, 1]);
+  const passOpacity = useTransform(x, [-80, 0], [1, 0]);
+  const likeScale = useTransform(x, [0, 80, 140], [0.5, 1, 1.15]);
+  const passScale = useTransform(x, [-140, -80, 0], [1.15, 1, 0.5]);
+  const cardBorderLike = useTransform(x, [0, 120], ['rgba(255,255,255,0)', 'rgba(167,139,250,0.5)']);
+  const cardBorderPass = useTransform(x, [-120, 0], ['rgba(120,113,140,0.5)', 'rgba(255,255,255,0)']);
   const [swiped, setSwiped] = useState(false);
 
   const country = COUNTRIES.find(c => c.code === card.user.nationality);
@@ -26,12 +30,12 @@ export default function SwipeCard({ card, onSwipeRight, onSwipeLeft, onTap }: Pr
     if (swiped) return;
     if (info.offset.x > 100 || info.velocity.x > 500) {
       setSwiped(true);
-      animate(x, 500, { duration: 0.3 }).then(onSwipeRight);
+      animate(x, 500, { duration: 0.25, ease: [0.32, 0.72, 0, 1] }).then(onSwipeRight);
     } else if (info.offset.x < -100 || info.velocity.x < -500) {
       setSwiped(true);
-      animate(x, -500, { duration: 0.3 }).then(onSwipeLeft);
+      animate(x, -500, { duration: 0.25, ease: [0.32, 0.72, 0, 1] }).then(onSwipeLeft);
     } else {
-      animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
+      animate(x, 0, { type: 'spring', stiffness: 600, damping: 35 });
     }
   };
 
@@ -46,57 +50,91 @@ export default function SwipeCard({ card, onSwipeRight, onSwipeLeft, onTap }: Pr
       }}
       drag="x"
       dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.8}
+      dragElastic={0.7}
       onDragEnd={handleDragEnd}
       onClick={onTap}
+      whileDrag={{ cursor: 'grabbing' }}
     >
-      <div
+      <motion.div
         style={{
           background: 'var(--surface)',
-          border: '1px solid var(--border)',
+          borderWidth: 2,
+          borderStyle: 'solid',
+          borderColor: useTransform(
+            x,
+            [-120, -40, 0, 40, 120],
+            ['rgba(120,113,140,0.5)', 'rgba(120,113,140,0.25)', 'var(--border)', 'rgba(167,139,250,0.25)', 'rgba(167,139,250,0.5)']
+          ),
           borderRadius: 24,
           overflow: 'hidden',
           position: 'relative',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
         }}
       >
-        {/* Swipe indicators */}
+        {/* Like indicator — centered icon */}
         <motion.div
           style={{
             position: 'absolute',
-            top: 24,
-            left: 24,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             opacity: likeOpacity,
-            background: 'rgba(74,222,128,0.2)',
-            border: '2px solid #4ADE80',
-            borderRadius: 12,
-            padding: '8px 20px',
-            fontSize: 20,
-            fontWeight: 700,
-            color: '#4ADE80',
-            transform: 'rotate(-15deg)',
+            scale: likeScale,
+            background: 'radial-gradient(circle at center, rgba(167,139,250,0.14) 0%, transparent 70%)',
+            pointerEvents: 'none',
           }}
         >
-          LIKE
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, rgba(167,139,250,0.2), rgba(251,185,105,0.15))',
+            backdropFilter: 'blur(24px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 0 48px rgba(167,139,250,0.25)',
+          }}>
+            <Heart size={36} color="#A78BFA" fill="#A78BFA" />
+          </div>
         </motion.div>
+
+        {/* Pass indicator — centered icon */}
         <motion.div
           style={{
             position: 'absolute',
-            top: 24,
-            right: 24,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             opacity: passOpacity,
-            background: 'rgba(239,68,68,0.2)',
-            border: '2px solid #EF4444',
-            borderRadius: 12,
-            padding: '8px 20px',
-            fontSize: 20,
-            fontWeight: 700,
-            color: '#EF4444',
-            transform: 'rotate(15deg)',
+            scale: passScale,
+            background: 'radial-gradient(circle at center, rgba(120,113,140,0.12) 0%, transparent 70%)',
+            pointerEvents: 'none',
           }}
         >
-          PASS
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: '50%',
+            background: 'rgba(120,113,140,0.18)',
+            backdropFilter: 'blur(24px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 0 48px rgba(120,113,140,0.15)',
+          }}>
+            <X size={36} color="#8E86A4" strokeWidth={2.5} />
+          </div>
         </motion.div>
 
         {/* Avatar area */}
@@ -111,7 +149,7 @@ export default function SwipeCard({ card, onSwipeRight, onSwipeLeft, onTap }: Pr
           }}
         >
           {card.user.avatarUrl ? (
-            <img src={card.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={card.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', userSelect: 'none' }} draggable={false} />
           ) : (
             <User size={80} color="rgba(255,255,255,0.2)" />
           )}
@@ -214,11 +252,11 @@ export default function SwipeCard({ card, onSwipeRight, onSwipeLeft, onTap }: Pr
 
           {card.user.freeText && (
             <p style={{ fontSize: 13, color: 'var(--text-sub)', marginTop: 12, lineHeight: 1.5 }}>
-              {card.user.freeText}
+              {card.user.freeText.length > 200 ? card.user.freeText.slice(0, 200) + '…' : card.user.freeText}
             </p>
           )}
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
