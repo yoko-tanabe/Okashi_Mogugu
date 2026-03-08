@@ -86,10 +86,28 @@ export default function HomeScreen({ onViewProfile, userId }: Props) {
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>
           <span className="gradient-text">Encounters</span>
         </h1>
+        <button
+          onClick={() => dispatch({ type: 'TOGGLE_DND' })}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            background: state.doNotDisturbMode ? 'rgba(239,68,68,0.15)' : 'var(--surface)',
+            border: `1px solid ${state.doNotDisturbMode ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
+            borderRadius: 20,
+            padding: '8px 14px',
+            color: state.doNotDisturbMode ? '#EF4444' : 'var(--text-sub)',
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          {state.doNotDisturbMode ? <Pause size={14} /> : <Play size={14} />}
+          {state.doNotDisturbMode ? 'Paused' : 'Active'}
+        </button>
       </div>
 
       {/* Card stack */}
-      <div style={{ padding: '0 20px', position: 'relative', height: 520, zIndex: 5 }}>
+      <div style={{ margin: '0 20px', position: 'relative', height: 520, zIndex: 5 }}>
         {state.doNotDisturbMode ? (
           <div style={{
             display: 'flex',
@@ -153,34 +171,6 @@ export default function HomeScreen({ onViewProfile, userId }: Props) {
             )}
           </>
         )}
-      </div>
-
-      {/* Active/Paused button */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '12px 0',
-        position: 'relative',
-        zIndex: 10,
-      }}>
-        <button
-          onClick={() => dispatch({ type: 'TOGGLE_DND' })}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            background: state.doNotDisturbMode ? 'rgba(239,68,68,0.15)' : 'var(--surface)',
-            border: `1px solid ${state.doNotDisturbMode ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
-            borderRadius: 20,
-            padding: '8px 14px',
-            color: state.doNotDisturbMode ? '#EF4444' : 'var(--text-sub)',
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          {state.doNotDisturbMode ? <Pause size={14} /> : <Play size={14} />}
-          {state.doNotDisturbMode ? 'Paused' : 'Active'}
-        </button>
       </div>
 
       {/* Action buttons */}
