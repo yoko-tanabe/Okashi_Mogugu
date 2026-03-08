@@ -26,6 +26,18 @@ interface DbMatch {
   metUp: boolean;
 }
 
+interface NearbyEncounter {
+  userId: string;
+  encounteredAt: string;
+  name: string;
+  nationality: string;
+  ageGroup: string;
+  hobbyTags: string[];
+  tokuPoints: number;
+  avatarUrl: string;
+  address: string;
+}
+
 interface Props {
   onOpenChat: (matchId: string) => void;
   userId: string | null;
@@ -35,7 +47,59 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
   const [dbMatches, setDbMatches] = useState<DbMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'matches' | 'nearby' | 'met'>('matches');
-  const { nearbyUsers } = useNearbyEncounters(userId);
+  const [nearbyEncounters, setNearbyEncounters] = useState<NearbyEncounter[]>([]);
+  useNearbyEncounters(userId); // バックグラウンドでencountersテーブルに保存
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchNearby = async () => {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: rows } = await getSupabase()
+        .from('encounters')
+        .select('user_b_id, encountered_at, location')
+        .eq('user_a_id', userId)
+        .gte('encountered_at', since)
+        .order('encountered_at', { ascending: false });
+
+      if (!rows || rows.length === 0) return;
+
+      const otherIds = rows.map(r => r.user_b_id);
+      const { data: profiles } = await getSupabase()
+        .from('profiles')
+        .select('id, name, nationality, age_group, hobby_tags, toku_points, avatar_url')
+        .in('id', otherIds);
+
+      const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
+      const encounters: NearbyEncounter[] = rows
+        .map(r => {
+          const p = profileMap.get(r.user_b_id);
+          if (!p) return null;
+          return {
+            userId: r.user_b_id,
+            encounteredAt: r.encountered_at,
+            name: p.name ?? '',
+            nationality: p.nationality ?? '',
+            ageGroup: p.age_group ?? '',
+            hobbyTags: p.hobby_tags ?? [],
+            tokuPoints: p.toku_points ?? 0,
+            avatarUrl: p.avatar_url ?? '',
+            address: r.location ?? '',
+          };
+        })
+        .filter((e): e is NearbyEncounter => e !== null);
+
+      // 同一ユーザーの重複を除去（最新のみ残す）
+      const seen = new Set<string>();
+      setNearbyEncounters(encounters.filter(e => {
+        if (seen.has(e.userId)) return false;
+        seen.add(e.userId);
+        return true;
+      }));
+    };
+
+    fetchNearby();
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) { setLoading(false); return; }
@@ -117,7 +181,7 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
 
   // マッチ済み・ペンディングのユーザーIDを除外
   const matchedUserIds = new Set(dbMatches.map(m => m.user.id));
-  const filteredNearbyUsers = nearbyUsers.filter(u => !matchedUserIds.has(u.userId));
+  const filteredNearbyUsers = nearbyEncounters.filter(u => !matchedUserIds.has(u.userId));
 
   return (
     <div className="page-container" style={{ background: 'var(--bg)', paddingBottom: 80 }}>
