@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { User, Globe, MapPin, Shield, Clock, ChevronRight, Edit3, Video, Users, Ban, ExternalLink } from 'lucide-react';
+import { User, Globe, ChevronRight, Edit3, Video, Users, ExternalLink } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { UserProfile } from '@/lib/types';
 import { getSupabase } from '@/lib/supabase';
@@ -13,6 +13,7 @@ export default function MyProfileScreen() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showTokuHistory, setShowTokuHistory] = useState(false);
+  const [tokuHistory, setTokuHistory] = useState<{ id: string; action: string; points: number; created_at: string; related_user_name?: string }[]>([]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -33,6 +34,7 @@ export default function MyProfileScreen() {
           hobbyTags: data.hobby_tags ?? [],
           freeText: data.free_text ?? '',
           videoLinks: data.video_links ?? [],
+          favoriteImages: data.favorite_images ?? [],
           languages: data.languages ?? [],
           travelStyle: data.travel_style ?? '',
           genderFilter: data.gender_filter ?? [],
@@ -43,6 +45,22 @@ export default function MyProfileScreen() {
           wantToMeetMode: data.want_to_meet_mode ?? true,
         });
       }
+      // Fetch toku history with related user name
+      const { data: historyData } = await getSupabase()
+        .from('toku_history')
+        .select('id, action, points, created_at, related_user_id, profiles!toku_history_related_user_id_fkey(name)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (historyData) {
+        setTokuHistory(historyData.map((h: any) => ({
+          id: h.id,
+          action: h.action,
+          points: h.points,
+          created_at: h.created_at,
+          related_user_name: h.profiles?.name ?? undefined,
+        })));
+      }
+
       setLoadingProfile(false);
     };
     fetchProfile();
@@ -185,7 +203,7 @@ export default function MyProfileScreen() {
           </div>
         </SectionCard>
 
-        {/* Free text */}
+        {/* Love (Free text + Favorite Contents) */}
         <SectionCard title="Love">
           {editing ? (
             <textarea
@@ -195,17 +213,20 @@ export default function MyProfileScreen() {
               style={{ minHeight: 80, resize: 'vertical' }}
             />
           ) : (
-            <p style={{ fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.6 }}>
+            <p style={{ fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.6, marginBottom: ((profile.favoriteImages ?? []).length > 0 || (profile.videoLinks ?? []).length > 0) ? 16 : 0 }}>
               {profile.freeText || 'No description yet'}
             </p>
           )}
-        </SectionCard>
-
-        {/* Favorite Videos */}
-        <SectionCard title="Favorite Videos">
-          {(profile.videoLinks ?? []).length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--text-hint)' }}>No videos added yet</p>
-          ) : (
+          {(profile.favoriteImages ?? []).length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: (profile.videoLinks ?? []).length > 0 ? 16 : 0 }}>
+              {(profile.favoriteImages ?? []).map((url, i) => (
+                <div key={i} style={{ aspectRatio: '1', borderRadius: 12, overflow: 'hidden' }}>
+                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
+            </div>
+          )}
+          {(profile.videoLinks ?? []).length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {(profile.videoLinks ?? []).map((url, i) => {
                 const thumbnail = getYoutubeThumbnail(url);
@@ -334,10 +355,10 @@ export default function MyProfileScreen() {
 
         {showTokuHistory && (
           <div style={{ marginBottom: 16 }}>
-            {state.tokuHistory.length === 0 ? (
+            {tokuHistory.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-hint)', padding: '12px 0' }}>No history yet</p>
             ) : (
-              state.tokuHistory.map(h => (
+              tokuHistory.map(h => (
                 <div key={h.id} style={{
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -346,8 +367,8 @@ export default function MyProfileScreen() {
                   borderBottom: '1px solid var(--border)',
                 }}>
                   <div>
-                    <div style={{ fontSize: 14 }}>{h.action}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>{h.date}</div>
+                    <div style={{ fontSize: 14 }}>{h.action}{h.related_user_name ? ` with ${h.related_user_name}` : ''}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>{new Date(h.created_at).toLocaleDateString()}</div>
                   </div>
                   <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--success)' }}>+{h.points}</span>
                 </div>
@@ -356,13 +377,6 @@ export default function MyProfileScreen() {
           </div>
         )}
 
-        {/* Settings section */}
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, marginTop: 8 }}>Settings</div>
-
-        <SettingRow icon={<Shield size={18} />} label="Do Not Disturb mode" value={state.doNotDisturbMode ? 'ON' : 'OFF'} onClick={() => dispatch({ type: 'TOGGLE_DND' })} />
-        <SettingRow icon={<MapPin size={18} />} label="Location sharing" value="Active" />
-        <SettingRow icon={<Clock size={18} />} label="DND schedule" value="Not set" />
-        <SettingRow icon={<Ban size={18} />} label="Block list" value="" />
       </div>
     </div>
   );
@@ -377,29 +391,3 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
-function SettingRow({ icon, label, value, onClick }: { icon: React.ReactNode; label: string; value: string; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '14px 16px',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 14,
-        cursor: onClick ? 'pointer' : 'default',
-        marginBottom: 8,
-        color: 'var(--text)',
-        fontSize: 14,
-      }}
-    >
-      <span style={{ color: 'var(--accent-light)' }}>{icon}</span>
-      <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
-      <span style={{ color: 'var(--text-sub)', fontSize: 13 }}>{value}</span>
-      <ChevronRight size={16} color="var(--text-hint)" />
-    </button>
-  );
-}

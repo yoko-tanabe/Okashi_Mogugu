@@ -19,6 +19,7 @@ const mockUsers: UserProfile[] = [
     tokuPoints: 350,
     avatarUrl: '',
     wantToMeetMode: true,
+    favoriteImages: [],
   },
   {
     id: 'u2',
@@ -38,6 +39,7 @@ const mockUsers: UserProfile[] = [
     tokuPoints: 150,
     avatarUrl: '',
     wantToMeetMode: true,
+    favoriteImages: [],
   },
   {
     id: 'u3',
@@ -57,6 +59,7 @@ const mockUsers: UserProfile[] = [
     tokuPoints: 620,
     avatarUrl: '',
     wantToMeetMode: true,
+    favoriteImages: [],
   },
   {
     id: 'u4',
@@ -76,6 +79,7 @@ const mockUsers: UserProfile[] = [
     tokuPoints: 80,
     avatarUrl: '',
     wantToMeetMode: true,
+    favoriteImages: [],
   },
   {
     id: 'u5',
@@ -95,6 +99,7 @@ const mockUsers: UserProfile[] = [
     tokuPoints: 1050,
     avatarUrl: '',
     wantToMeetMode: true,
+    favoriteImages: [],
   },
 ];
 

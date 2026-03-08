@@ -283,12 +283,14 @@ export default function ChatScreen({ matchId, userId, onBack, onNavigatePassport
         user_id: userAId,
         action: 'Met up',
         points: pointsToAdd,
+        related_user_id: userBId,
       }),
       getSupabase().from('toku_history').insert({
         id: crypto.randomUUID(),
         user_id: userBId,
         action: 'Met up',
         points: pointsToAdd,
+        related_user_id: userAId,
       }),
     ]);
 

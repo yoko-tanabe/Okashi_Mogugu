@@ -240,7 +240,9 @@ export default function ProfileDetailScreen({ card, onBack, onLike, onPass }: Pr
           <div style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(165deg, rgba(124,92,252,0.25) 0%, rgba(124,92,252,0.10) 35%, rgba(245,158,66,0.12) 65%, rgba(245,158,66,0.06) 100%)",
+            background: user.favoriteImages?.[0]
+              ? `url(${user.favoriteImages[0]}) center/cover no-repeat`
+              : "linear-gradient(165deg, rgba(124,92,252,0.25) 0%, rgba(124,92,252,0.10) 35%, rgba(245,158,66,0.12) 65%, rgba(245,158,66,0.06) 100%)",
             opacity: heroOpacity,
             transform: `scale(${heroScale})`,
             transformOrigin: "center center",
@@ -249,7 +251,9 @@ export default function ProfileDetailScreen({ card, onBack, onLike, onPass }: Pr
             <div style={{
               position: "absolute",
               inset: 0,
-              background: "radial-gradient(ellipse at 25% 20%, rgba(124,92,252,0.18) 0%, transparent 55%), radial-gradient(ellipse at 80% 75%, rgba(245,158,66,0.12) 0%, transparent 45%)",
+              background: user.favoriteImages?.[0]
+                ? "linear-gradient(to bottom, rgba(11,14,20,0.3) 0%, rgba(11,14,20,0.6) 100%)"
+                : "radial-gradient(ellipse at 25% 20%, rgba(124,92,252,0.18) 0%, transparent 55%), radial-gradient(ellipse at 80% 75%, rgba(245,158,66,0.12) 0%, transparent 45%)",
             }} />
           </div>
 
@@ -466,65 +470,78 @@ export default function ProfileDetailScreen({ card, onBack, onLike, onPass }: Pr
               </p>
             )}
 
-            {user.videoLinks && user.videoLinks.length > 0 && (
+            {((user.videoLinks && user.videoLinks.length > 0) || (user.favoriteImages && user.favoriteImages.length > 0)) && (
                 <>
-                  <div className="section-title" style={{ marginTop: user.freeText ? 20 : 0 }}>Favorite Videos</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {user.videoLinks.map((url, i) => {
-                      const videoId = url.match(/(?:youtu\.be\/|v=)([^&?/]+)/)?.[1];
-                      return (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 12,
-                            background: "rgba(255,255,255,0.06)",
-                            border: "1px solid rgba(255,255,255,0.10)",
-                            borderRadius: 12,
-                            padding: 10,
-                            textDecoration: "none",
-                            color: "inherit",
-                            transition: "border-color 0.2s",
-                          }}
-                        >
-                          {videoId && (
-                            <img
-                              alt=""
-                              src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
-                              style={{
-                                width: 80,
-                                height: 45,
-                                borderRadius: 8,
-                                objectFit: "cover",
-                                flexShrink: 0,
-                              }}
-                            />
-                          )}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>YouTube</div>
-                            <div style={{
-                              fontSize: 11,
-                              color: "rgba(255,255,255,0.30)",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}>
-                              {url}
+                  <div className="section-title" style={{ marginTop: user.freeText ? 20 : 0 }}>Favorite Contents</div>
+
+                  {user.favoriteImages && user.favoriteImages.length > 0 && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: user.videoLinks && user.videoLinks.length > 0 ? 16 : 0 }}>
+                      {user.favoriteImages.map((url, i) => (
+                        <div key={i} style={{ aspectRatio: "1", borderRadius: 12, overflow: "hidden" }}>
+                          <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {user.videoLinks && user.videoLinks.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {user.videoLinks.map((url, i) => {
+                        const videoId = url.match(/(?:youtu\.be\/|v=)([^&?/]+)/)?.[1];
+                        return (
+                          <a
+                            key={i}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                              background: "rgba(255,255,255,0.06)",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                              borderRadius: 12,
+                              padding: 10,
+                              textDecoration: "none",
+                              color: "inherit",
+                              transition: "border-color 0.2s",
+                            }}
+                          >
+                            {videoId && (
+                              <img
+                                alt=""
+                                src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+                                style={{
+                                  width: 80,
+                                  height: 45,
+                                  borderRadius: 8,
+                                  objectFit: "cover",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>YouTube</div>
+                              <div style={{
+                                fontSize: 11,
+                                color: "rgba(255,255,255,0.30)",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}>
+                                {url}
+                              </div>
                             </div>
-                          </div>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                            <path d="M15 3h6v6" />
-                            <path d="M10 14 21 3" />
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                          </svg>
-                        </a>
-                      );
-                    })}
-                  </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <path d="M15 3h6v6" />
+                              <path d="M10 14 21 3" />
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            </svg>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
                 </>
               )}
             </div>

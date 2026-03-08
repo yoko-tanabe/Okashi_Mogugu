@@ -36,6 +36,7 @@ interface DbProfile {
   age_group: string;
   toku_points: number;
   created_at: string;
+  avatar_url: string | null;
 }
 
 export default function PassportScreen() {
@@ -50,6 +51,7 @@ export default function PassportScreen() {
   const [userEncounterTimes, setUserEncounterTimes] = useState<Map<string, string>>(new Map());
   const [metUserTimes, setMetUserTimes] = useState<Map<string, string>>(new Map());
   const [stampTab, setStampTab] = useState<'met' | 'nearby'>('met');
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,7 +65,7 @@ export default function PassportScreen() {
       // Fetch my profile
       const { data: myProfileData } = await getSupabase()
         .from('profiles')
-        .select('id, name, nationality, gender, age_group, toku_points, created_at')
+        .select('id, name, nationality, gender, age_group, toku_points, created_at, avatar_url')
         .eq('id', user.id)
         .single();
 
@@ -101,7 +103,7 @@ export default function PassportScreen() {
       if (encounteredIds.size > 0) {
         const { data: encounteredProfiles } = await getSupabase()
           .from('profiles')
-          .select('id, name, nationality, gender, age_group, toku_points, created_at')
+          .select('id, name, nationality, gender, age_group, toku_points, created_at, avatar_url')
           .in('id', Array.from(encounteredIds));
 
         if (encounteredProfiles) {
@@ -131,7 +133,7 @@ export default function PassportScreen() {
         const uniqueMetIds = [...new Set(metOtherIds)];
         const { data: metProfileData } = await getSupabase()
           .from('profiles')
-          .select('id, name, nationality, gender, age_group, toku_points, created_at')
+          .select('id, name, nationality, gender, age_group, toku_points, created_at, avatar_url')
           .in('id', uniqueMetIds);
 
         if (metProfileData) {
@@ -151,11 +153,14 @@ export default function PassportScreen() {
   const toku = getTokuLevel(myProfile.tokuPoints);
   const myCountry = COUNTRIES.find(c => c.code === myProfile.nationality);
 
+  // Fixed counts (always visible, not tab-dependent)
+  const metCountriesCount = useMemo(() => new Set(metProfiles.map(p => p.nationality)).size, [metProfiles]);
+  const nearbyCountriesCount = useMemo(() => new Set(profiles.map(p => p.nationality)).size, [profiles]);
+
   // Active tab data
   const activeProfiles = stampTab === 'met' ? metProfiles : profiles;
   const activeTimesMap = stampTab === 'met' ? metUserTimes : userEncounterTimes;
   const activeCountries = useMemo(() => new Set(activeProfiles.map(p => p.nationality)), [activeProfiles]);
-  const uniqueCountries = activeCountries.size;
 
   // Group profiles by nationality for stamp display, with new countries first
   const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
@@ -246,18 +251,21 @@ export default function PassportScreen() {
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>
             <span className="gradient-text">Passport</span>
           </h1>
-          <button style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: '8px 14px',
-            color: 'var(--text-sub)',
-            fontSize: 13,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}>
+          <button
+            onClick={() => setShowShareModal(true)}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: '8px 14px',
+              color: 'var(--text-sub)',
+              fontSize: 13,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
             <Share2 size={14} /> Share
           </button>
         </div>
@@ -286,21 +294,59 @@ export default function PassportScreen() {
             Travel Passport
           </div>
           <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{myProfile.name}</div>
-          <div style={{ fontSize: 14, color: 'var(--text-sub)', marginBottom: 16 }}>
-            {toku.emoji} {toku.title}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+            <span style={{
+              fontSize: 12,
+              color: 'var(--text-sub)',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 20,
+              padding: '4px 12px',
+              fontWeight: 600,
+            }}>
+              {toku.emoji} {toku.title}
+            </span>
+            <span style={{
+              fontSize: 12,
+              color: 'var(--text-sub)',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 20,
+              padding: '4px 12px',
+              fontWeight: 600,
+            }}>
+              {myProfile.tokuPoints} Toku
+            </span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 32 }}>
-            <div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-light)' }}>{activeProfiles.length}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>Meetings</div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'stretch',
+            gap: 0,
+            background: 'rgba(0,0,0,0.15)',
+            borderRadius: 16,
+            padding: '14px 4px',
+            margin: '0 -4px',
+          }}>
+            <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-light)' }}>{metProfiles.length}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-sub)', marginTop: 2 }}>You met</div>
             </div>
-            <div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#FBB969' }}>{uniqueCountries}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>Countries</div>
+            <div style={{ width: 1, background: 'var(--border)', margin: '4px 0' }} />
+            <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
+                <span style={{ fontSize: 24, fontWeight: 700, color: '#FBB969' }}>{metCountriesCount}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-hint)' }}>/195</span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-sub)', marginTop: 2 }}>Met Countries</div>
             </div>
-            <div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--success)' }}>{myProfile.tokuPoints}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>Toku pts</div>
+            <div style={{ width: 1, background: 'var(--border)', margin: '4px 0' }} />
+            <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
+                <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--success)' }}>{nearbyCountriesCount}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-hint)' }}>/195</span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-sub)', marginTop: 2 }}>Nearby Countries</div>
             </div>
           </div>
         </div>
@@ -308,7 +354,7 @@ export default function PassportScreen() {
         {/* World map */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-main)' }}>出会った人の出身国</h2>
+            <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-main)' }}>{stampTab === 'met' ? '出会った人の出身国' : 'すれ違った人の出身国'}</h2>
             {activeCountries.size > 0 && (
               <span style={{ fontSize: 12, color: 'var(--accent-light)', background: 'rgba(124,92,252,0.15)', padding: '3px 10px', borderRadius: 20 }}>
                 {activeCountries.size}カ国
@@ -359,8 +405,8 @@ export default function PassportScreen() {
           />
         </div>
 
-        {/* Stamp pages */}
-        {countriesWithProfiles.length > 0 ? (
+        {/* Stamp pages (only for 'met' tab) */}
+        {stampTab === 'met' && countriesWithProfiles.length > 0 ? (
           <>
             <div style={{ position: 'relative', minHeight: 320, marginBottom: 16 }}>
               <AnimatePresence mode="wait" custom={direction}>
@@ -490,12 +536,12 @@ export default function PassportScreen() {
               </div>
             )}
           </>
-        ) : (
+        ) : stampTab === 'met' ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-sub)' }}>
             <p>No stamps yet</p>
             <p style={{ fontSize: 13, marginTop: 4 }}>Meet travelers to collect stamps!</p>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Country detail overlay */}
@@ -583,10 +629,39 @@ export default function PassportScreen() {
                       borderBottom: '1px solid var(--border)',
                     }}
                   >
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 600 }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>
-                        {p.age_group} · {p.gender}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {p.avatar_url ? (
+                        <img
+                          src={p.avatar_url}
+                          alt={p.name}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '1px solid var(--border)',
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, rgba(167,139,250,0.2), rgba(251,185,105,0.15))',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 16,
+                          color: 'var(--text-sub)',
+                        }}>
+                          {p.name.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 600 }}>{p.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>
+                          {p.age_group} · {p.gender}
+                        </div>
                       </div>
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>
@@ -595,6 +670,67 @@ export default function PassportScreen() {
                   </div>
                 ))}
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share coming soon modal */}
+      <AnimatePresence>
+        {showShareModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setShowShareModal(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.6)',
+              zIndex: 100,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 24,
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 24,
+                padding: '32px 28px',
+                width: '100%',
+                maxWidth: 340,
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 40, marginBottom: 16 }}>🚧</div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Coming Soon</div>
+              <p style={{ fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.6, margin: '0 0 20px' }}>
+                パスポートのシェア機能は現在開発中です。もうしばらくお待ちください！
+              </p>
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{
+                  padding: '10px 32px',
+                  borderRadius: 14,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-main)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                OK
+              </button>
             </motion.div>
           </motion.div>
         )}

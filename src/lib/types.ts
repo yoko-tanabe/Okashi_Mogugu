@@ -8,6 +8,7 @@ export interface UserProfile {
   hobbyTags: string[];
   freeText: string;
   videoLinks: string[];
+  favoriteImages: string[];
   languages: string[];
   travelStyle: string;
   genderFilter: string[];

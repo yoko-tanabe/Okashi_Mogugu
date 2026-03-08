@@ -1,5 +1,5 @@
 'use client';
-import { Home, Users, MessageCircle, BookOpen, User } from 'lucide-react';
+import { Home, Users, BookOpen, User } from 'lucide-react';
 
 type Tab = 'home' | 'matches' | 'chat' | 'passport' | 'profile';
 
@@ -12,7 +12,6 @@ interface BottomNavProps {
 const tabs: { key: Tab; icon: typeof Home; label: string }[] = [
   { key: 'home', icon: Home, label: 'Home' },
   { key: 'matches', icon: Users, label: 'Matches' },
-  { key: 'chat', icon: MessageCircle, label: 'Chat' },
   { key: 'passport', icon: BookOpen, label: 'Passport' },
   { key: 'profile', icon: User, label: 'Profile' },
 ];

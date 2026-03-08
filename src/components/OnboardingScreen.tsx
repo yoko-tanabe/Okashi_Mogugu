@@ -1,12 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Check, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, MapPin, ImagePlus, X } from 'lucide-react';
 import { HOBBY_TAGS, GENDER_OPTIONS, COUNTRIES, LANGUAGES, TRAVEL_STYLES } from '@/lib/constants';
 import { UserProfile } from '@/lib/types';
 import AmbientGlow from './AmbientGlow';
 
 interface Props {
-  onComplete: (profile: Partial<UserProfile>, email: string, password: string, photoFile?: File) => void;
+  onComplete: (profile: Partial<UserProfile>, email: string, password: string, photoFile?: File, favoriteImageFiles?: File[]) => void;
 }
 
 const TOTAL_STEPS = 9;
@@ -31,6 +31,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
   const [travelStyle, setTravelStyle] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [favoriteImages, setFavoriteImages] = useState<{ file: File; preview: string }[]>([]);
 
   const canProceed = () => {
     switch (step) {
@@ -65,7 +66,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
       videoLinks: videoLinks.filter(v => v.trim() !== ''),
       languages: selectedLanguages,
       travelStyle,
-    }, email, password, photoFile ?? undefined);
+    }, email, password, photoFile ?? undefined, favoriteImages.length > 0 ? favoriteImages.map(f => f.file) : undefined);
   };
 
   const next = () => {
@@ -287,7 +288,9 @@ export default function OnboardingScreen({ onComplete }: Props) {
         )}
 
         {step === 7 && (
-          <StepContainer title="Favorite videos" sub="Share up to 5 video links (YouTube, TikTok, etc.)">
+          <StepContainer title="Favorite contents" sub="Share video links and photos of things you love">
+            {/* Video links */}
+            <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8 }}>Video links (up to 5)</div>
             {videoLinks.map((link, i) => (
               <input
                 key={i}
@@ -305,11 +308,72 @@ export default function OnboardingScreen({ onComplete }: Props) {
             {videoLinks.length < 5 && (
               <button
                 onClick={() => setVideoLinks(prev => [...prev, ''])}
-                style={{ background: 'none', border: 'none', color: 'var(--accent-light)', fontSize: 14, cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--accent-light)', fontSize: 14, cursor: 'pointer', marginBottom: 24 }}
               >
                 + Add another link
               </button>
             )}
+
+            {/* Favorite images */}
+            <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, marginTop: 8 }}>Photos (up to 5)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              {favoriteImages.map((img, i) => (
+                <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 12, overflow: 'hidden' }}>
+                  <img src={img.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <button
+                    onClick={() => {
+                      URL.revokeObjectURL(img.preview);
+                      setFavoriteImages(prev => prev.filter((_, j) => j !== i));
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.6)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0,
+                    }}
+                  >
+                    <X size={14} color="#fff" />
+                  </button>
+                </div>
+              ))}
+              {favoriteImages.length < 5 && (
+                <label style={{
+                  aspectRatio: '1',
+                  borderRadius: 12,
+                  border: '2px dashed rgba(124,92,252,0.4)',
+                  background: 'rgba(124,92,252,0.06)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  gap: 4,
+                }}>
+                  <ImagePlus size={24} color="var(--accent-light)" />
+                  <span style={{ fontSize: 11, color: 'var(--accent-light)' }}>Add</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f && favoriteImages.length < 5) {
+                        setFavoriteImages(prev => [...prev, { file: f, preview: URL.createObjectURL(f) }]);
+                      }
+                    }}
+                  />
+                </label>
+              )}
+            </div>
           </StepContainer>
         )}
 
