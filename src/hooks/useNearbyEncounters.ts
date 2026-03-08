@@ -15,6 +15,7 @@ export interface NearbyUser {
   travelStyle: string;
   tokuPoints: number;
   avatarUrl: string;
+  videoLinks: string[];
   address: string;
 }
 
@@ -90,7 +91,7 @@ export function useNearbyEncounters(userId: string | null) {
       const userIds = Array.from(matched.keys());
       const { data: profiles } = await getSupabase()
         .from('profiles')
-        .select('id, name, nationality, gender, age_group, hobby_tags, free_text, languages, travel_style, toku_points, avatar_url')
+        .select('id, name, nationality, gender, age_group, hobby_tags, free_text, languages, travel_style, toku_points, avatar_url, video_links')
         .in('id', userIds);
 
       // Fetch addresses from Nominatim for each midpoint
@@ -131,6 +132,7 @@ export function useNearbyEncounters(userId: string | null) {
             travelStyle: p.travel_style ?? '',
             tokuPoints: p.toku_points ?? 0,
             avatarUrl: p.avatar_url ?? '',
+            videoLinks: p.video_links ?? [],
             address: addressMap.get(uid) ?? '',
           };
         })

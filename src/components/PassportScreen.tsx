@@ -38,11 +38,6 @@ interface DbProfile {
   created_at: string;
 }
 
-interface DbEncounter {
-  user_a_id: string;
-  user_b_id: string;
-}
-
 export default function PassportScreen() {
   const { state } = useApp();
   const [currentPage, setCurrentPage] = useState(0);
@@ -57,38 +52,52 @@ export default function PassportScreen() {
     const fetchData = async () => {
       const { data: { user } } = await getSupabase().auth.getUser();
 
-      const { data: allProfiles } = await getSupabase()
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch my profile
+      const { data: myProfileData } = await getSupabase()
         .from('profiles')
-        .select('id, name, nationality, gender, age_group, toku_points, created_at');
+        .select('id, name, nationality, gender, age_group, toku_points, created_at')
+        .eq('id', user.id)
+        .single();
 
-      if (allProfiles) {
-        if (user) {
-          setMyDbProfile(allProfiles.find(p => p.id === user.id) ?? null);
-          setProfiles(allProfiles.filter(p => p.id !== user.id));
+      if (myProfileData) {
+        setMyDbProfile(myProfileData);
+      }
 
-          // Encounterテーブルから会った相手の出身国を取得
-          const { data: encounters } = await getSupabase()
-            .from('encounters')
-            .select('user_a_id, user_b_id')
-            .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
+      // Fetch encounters where I am user_a or user_b
+      const [encA, encB] = await Promise.all([
+        getSupabase()
+          .from('encounters')
+          .select('user_b_id')
+          .eq('user_a_id', user.id),
+        getSupabase()
+          .from('encounters')
+          .select('user_a_id')
+          .eq('user_b_id', user.id),
+      ]);
 
-          if (encounters) {
-            const partnerIds = new Set(
-              (encounters as DbEncounter[]).map(e =>
-                e.user_a_id === user.id ? e.user_b_id : e.user_a_id
-              )
-            );
-            const countries = new Set(
-              allProfiles
-                .filter(p => partnerIds.has(p.id))
-                .map(p => p.nationality)
-            );
-            setMetCountries(countries);
-          }
-        } else {
-          setProfiles(allProfiles);
+      const encounteredIds = new Set<string>();
+      encA.data?.forEach(e => encounteredIds.add(e.user_b_id));
+      encB.data?.forEach(e => encounteredIds.add(e.user_a_id));
+
+      if (encounteredIds.size > 0) {
+        const { data: encounteredProfiles } = await getSupabase()
+          .from('profiles')
+          .select('id, name, nationality, gender, age_group, toku_points, created_at')
+          .in('id', Array.from(encounteredIds));
+
+        if (encounteredProfiles) {
+          setProfiles(encounteredProfiles);
+          // 出会った人の出身国を世界地図用にセット
+          const countries = new Set(encounteredProfiles.map(p => p.nationality));
+          setMetCountries(countries);
         }
       }
+
       setLoading(false);
     };
     fetchData();

@@ -6,7 +6,7 @@ import { UserProfile } from '@/lib/types';
 import AmbientGlow from './AmbientGlow';
 
 interface Props {
-  onComplete: (profile: Partial<UserProfile>, email: string, password: string) => void;
+  onComplete: (profile: Partial<UserProfile>, email: string, password: string, photoFile?: File) => void;
 }
 
 const TOTAL_STEPS = 9;
@@ -29,6 +29,8 @@ export default function OnboardingScreen({ onComplete }: Props) {
   const [videoLinks, setVideoLinks] = useState<string[]>(['']);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [travelStyle, setTravelStyle] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   const canProceed = () => {
     switch (step) {
@@ -63,7 +65,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
       videoLinks: videoLinks.filter(v => v.trim() !== ''),
       languages: selectedLanguages,
       travelStyle,
-    }, email, password);
+    }, email, password, photoFile ?? undefined);
   };
 
   const next = () => {
@@ -156,6 +158,43 @@ export default function OnboardingScreen({ onComplete }: Props) {
 
         {step === 2 && (
           <StepContainer title="What's your name?" sub="Tell us your nickname and where you're from">
+            {/* Photo upload */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+              <label style={{ cursor: 'pointer', position: 'relative' }}>
+                <div style={{
+                  width: 100,
+                  height: 100,
+                  borderRadius: '50%',
+                  background: photoPreview ? 'none' : 'linear-gradient(135deg, rgba(124,92,252,0.3), rgba(245,158,66,0.2))',
+                  border: '2px dashed rgba(124,92,252,0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                }}>
+                  {photoPreview ? (
+                    <img src={photoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ textAlign: 'center', color: 'var(--accent-light)', fontSize: 12 }}>
+                      <div style={{ fontSize: 28, marginBottom: 4 }}>+</div>
+                      Photo
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setPhotoFile(f);
+                      setPhotoPreview(URL.createObjectURL(f));
+                    }
+                  }}
+                />
+              </label>
+            </div>
             <input className="input-field" placeholder="Nickname" value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: 16 }} />
             <label style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, display: 'block' }}>Nationality</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>

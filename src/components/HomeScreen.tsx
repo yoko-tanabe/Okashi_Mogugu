@@ -8,7 +8,7 @@ import SwipeCard from './SwipeCard';
 import AmbientGlow from './AmbientGlow';
 
 interface Props {
-  onViewProfile: (cardId: string) => void;
+  onViewProfile: (card: EncounterCard) => void;
   userId: string | null;
 }
 
@@ -29,7 +29,7 @@ export default function HomeScreen({ onViewProfile, userId }: Props) {
         ageGroup: u.ageGroup,
         hobbyTags: u.hobbyTags,
         freeText: u.freeText,
-        videoLinks: [],
+        videoLinks: u.videoLinks,
         languages: u.languages,
         travelStyle: u.travelStyle,
         genderFilter: [],
@@ -148,7 +148,7 @@ export default function HomeScreen({ onViewProfile, userId }: Props) {
                 card={cards[0]}
                 onSwipeRight={handleSwipeRight}
                 onSwipeLeft={handleSwipeLeft}
-                onTap={() => onViewProfile(cards[0].id)}
+                onTap={() => onViewProfile(cards[0])}
               />
             )}
           </>

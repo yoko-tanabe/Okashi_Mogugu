@@ -110,7 +110,11 @@ export default function SwipeCard({ card, onSwipeRight, onSwipeLeft, onTap }: Pr
             position: 'relative',
           }}
         >
-          <User size={80} color="rgba(255,255,255,0.2)" />
+          {card.user.avatarUrl ? (
+            <img src={card.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <User size={80} color="rgba(255,255,255,0.2)" />
+          )}
           {/* Location badge */}
           <div
             style={{

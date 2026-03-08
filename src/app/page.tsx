@@ -1,7 +1,7 @@
 'use client';
 import { useReducer, useState, useEffect } from 'react';
 import { AppContext, appReducer, defaultState } from '@/lib/store';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, EncounterCard } from '@/lib/types';
 import { getSupabase } from '@/lib/supabase';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
 import WelcomeScreen from '@/components/WelcomeScreen';
@@ -20,7 +20,7 @@ type Screen =
   | { type: 'login' }
   | { type: 'onboarding' }
   | { type: 'home' }
-  | { type: 'profile-detail'; cardId: string }
+  | { type: 'profile-detail'; card: EncounterCard }
   | { type: 'matches' }
   | { type: 'chat'; matchId: string }
   | { type: 'passport' }
@@ -45,7 +45,7 @@ export default function App() {
     });
   }, []);
 
-  const handleOnboardingComplete = async (profile: Partial<UserProfile>, email: string, password: string) => {
+  const handleOnboardingComplete = async (profile: Partial<UserProfile>, email: string, password: string, photoFile?: File) => {
     setAuthError('');
     const { data, error } = await getSupabase().auth.signUp({ email, password });
     if (error) {
@@ -72,6 +72,18 @@ export default function App() {
     if (dbError) {
       setAuthError(dbError.message);
       return;
+    }
+
+    // Upload photo if provided
+    if (photoFile) {
+      const formData = new FormData();
+      formData.append('file', photoFile);
+      formData.append('userId', data.user!.id);
+      const uploadRes = await fetch('/api/upload-photo', { method: 'POST', body: formData });
+      if (uploadRes.ok) {
+        const { avatarUrl } = await uploadRes.json();
+        await getSupabase().from('profiles').update({ avatar_url: avatarUrl }).eq('id', data.user!.id);
+      }
     }
 
     setUserId(data.user!.id);
@@ -109,7 +121,7 @@ export default function App() {
     }
   })();
 
-  const showNav = !['welcome', 'login', 'onboarding'].includes(screen.type);
+  const showNav = !['welcome', 'login', 'onboarding', 'profile-detail'].includes(screen.type);
   const pendingCount = state.matches.filter(m => m.status === 'pending_received').length;
 
   if (loading) {
@@ -140,29 +152,25 @@ export default function App() {
 
         {screen.type === 'home' && (
           <HomeScreen
-            onViewProfile={(cardId) => setScreen({ type: 'profile-detail', cardId })}
+            onViewProfile={(card) => setScreen({ type: 'profile-detail', card })}
             userId={userId}
           />
         )}
 
-        {screen.type === 'profile-detail' && (() => {
-          const card = state.encounters.find(e => e.id === screen.cardId);
-          if (!card) return null;
-          return (
-            <ProfileDetailScreen
-              card={card}
-              onBack={() => setScreen({ type: 'home' })}
-              onLike={() => {
-                dispatch({ type: 'SWIPE_RIGHT', cardId: screen.cardId });
-                setScreen({ type: 'home' });
-              }}
-              onPass={() => {
-                dispatch({ type: 'SWIPE_LEFT', cardId: screen.cardId });
-                setScreen({ type: 'home' });
-              }}
-            />
-          );
-        })()}
+        {screen.type === 'profile-detail' && (
+          <ProfileDetailScreen
+            card={screen.card}
+            onBack={() => setScreen({ type: 'home' })}
+            onLike={() => {
+              dispatch({ type: 'SWIPE_RIGHT', cardId: screen.card.id });
+              setScreen({ type: 'home' });
+            }}
+            onPass={() => {
+              dispatch({ type: 'SWIPE_LEFT', cardId: screen.card.id });
+              setScreen({ type: 'home' });
+            }}
+          />
+        )}
 
         {screen.type === 'matches' && (
           <MatchesScreen onOpenChat={(matchId) => setScreen({ type: 'chat', matchId })} userId={userId} />

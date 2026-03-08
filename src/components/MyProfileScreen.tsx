@@ -138,8 +138,13 @@ export default function MyProfileScreen() {
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 16px',
+            overflow: 'hidden',
           }}>
-            <User size={36} color="rgba(255,255,255,0.4)" />
+            {profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <User size={36} color="rgba(255,255,255,0.4)" />
+            )}
           </div>
 
           {editing ? (
