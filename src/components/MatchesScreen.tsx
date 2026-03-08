@@ -1,9 +1,29 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { User, MessageCircle, Clock, MapPin } from 'lucide-react';
-import { useApp } from '@/lib/store';
 import { getTokuLevel, COUNTRIES } from '@/lib/constants';
+import { getSupabase } from '@/lib/supabase';
 import AmbientGlow from './AmbientGlow';
 import { useNearbyEncounters } from '@/hooks/useNearbyEncounters';
+
+interface MatchUser {
+  id: string;
+  name: string;
+  nationality: string;
+  gender: string;
+  ageGroup: string;
+  hobbyTags: string[];
+  tokuPoints: number;
+  avatarUrl: string;
+}
+
+interface DbMatch {
+  id: string;
+  user: MatchUser;
+  matchedAt: string;
+  status: 'pending_sent' | 'pending_received' | 'matched';
+  chatOpen: boolean;
+}
 
 interface Props {
   onOpenChat: (matchId: string) => void;
@@ -11,10 +31,89 @@ interface Props {
 }
 
 export default function MatchesScreen({ onOpenChat, userId }: Props) {
-  const { state } = useApp();
-  const matched = state.matches.filter(m => m.status === 'matched');
-  const pending = state.matches.filter(m => m.status === 'pending_received' || m.status === 'pending_sent');
+  const [dbMatches, setDbMatches] = useState<DbMatch[]>([]);
+  const [loading, setLoading] = useState(true);
   const { nearbyUsers } = useNearbyEncounters(userId);
+
+  useEffect(() => {
+    if (!userId) { setLoading(false); return; }
+
+    const fetchMatches = async () => {
+      // matchesテーブルから自分が関わるレコードを取得
+      const { data: matchRows, error } = await getSupabase()
+        .from('matches')
+        .select('id, user_a_id, user_b_id, status, chat_open, matched_at')
+        .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`);
+
+      if (error || !matchRows || matchRows.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // 相手のユーザーIDを集める
+      const otherUserIds = matchRows.map(row =>
+        row.user_a_id === userId ? row.user_b_id : row.user_a_id
+      );
+
+      // 相手のプロフィールを取得
+      const { data: profiles } = await getSupabase()
+        .from('profiles')
+        .select('id, name, nationality, gender, age_group, hobby_tags, toku_points, avatar_url')
+        .in('id', otherUserIds);
+
+      const profileMap = new Map<string, MatchUser>();
+      (profiles ?? []).forEach(p => {
+        profileMap.set(p.id, {
+          id: p.id,
+          name: p.name ?? '',
+          nationality: p.nationality ?? '',
+          gender: p.gender ?? '',
+          ageGroup: p.age_group ?? '',
+          hobbyTags: p.hobby_tags ?? [],
+          tokuPoints: p.toku_points ?? 0,
+          avatarUrl: p.avatar_url ?? '',
+        });
+      });
+
+      // MatchEntryに変換
+      const entries: DbMatch[] = matchRows
+        .map(row => {
+          const otherId = row.user_a_id === userId ? row.user_b_id : row.user_a_id;
+          const user = profileMap.get(otherId);
+          if (!user) return null;
+
+          // statusの判定: DB上 'matched' ならmatched、それ以外はpending
+          let status: DbMatch['status'];
+          if (row.status === 'matched') {
+            status = 'matched';
+          } else {
+            // user_a_idがスワイプを先にした側
+            status = row.user_a_id === userId ? 'pending_sent' : 'pending_received';
+          }
+
+          return {
+            id: row.id,
+            user,
+            matchedAt: row.matched_at ?? '',
+            status,
+            chatOpen: row.chat_open ?? false,
+          };
+        })
+        .filter((e): e is DbMatch => e !== null);
+
+      setDbMatches(entries);
+      setLoading(false);
+    };
+
+    fetchMatches();
+  }, [userId]);
+
+  const matched = dbMatches.filter(m => m.status === 'matched');
+  const pending = dbMatches.filter(m => m.status === 'pending_received' || m.status === 'pending_sent');
+
+  // マッチ済み・ペンディングのユーザーIDを除外
+  const matchedUserIds = new Set(dbMatches.map(m => m.user.id));
+  const filteredNearbyUsers = nearbyUsers.filter(u => !matchedUserIds.has(u.userId));
 
   return (
     <div className="page-container" style={{ background: 'var(--bg)', paddingBottom: 80 }}>
@@ -24,6 +123,10 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
         <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>
           <span className="gradient-text">Matches</span>
         </h1>
+
+        {loading && (
+          <p style={{ color: 'var(--text-sub)', fontSize: 14, textAlign: 'center', padding: '20px 0' }}>Loading...</p>
+        )}
 
         {/* Matched */}
         {matched.length > 0 && (
@@ -51,8 +154,13 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0,
+                      overflow: 'hidden',
                     }}>
-                      <User size={24} color="rgba(255,255,255,0.3)" />
+                      {m.user.avatarUrl ? (
+                        <img src={m.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <User size={24} color="rgba(255,255,255,0.3)" />
+                      )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -74,7 +182,7 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
 
         {/* Pending */}
         {pending.length > 0 && (
-          <div>
+          <div style={{ marginBottom: 32 }}>
             <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 12 }}>
               Pending ({pending.length})
             </h2>
@@ -92,8 +200,13 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0,
+                      overflow: 'hidden',
                     }}>
-                      <User size={24} color="rgba(255,255,255,0.2)" />
+                      {m.user.avatarUrl ? (
+                        <img src={m.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <User size={24} color="rgba(255,255,255,0.2)" />
+                      )}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -113,13 +226,13 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
         )}
 
         {/* Nearby encounters from location_logs */}
-        {nearbyUsers.length > 0 && (
+        {filteredNearbyUsers.length > 0 && (
           <div style={{ marginBottom: 32 }}>
             <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 12 }}>
-              近くにいた人 ({nearbyUsers.length})
+              近くにいた人 ({filteredNearbyUsers.length})
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {nearbyUsers.map(u => {
+              {filteredNearbyUsers.map(u => {
                 const country = COUNTRIES.find(c => c.code === u.nationality);
                 const toku = getTokuLevel(u.tokuPoints);
                 const timeAgo = formatTimeAgo(u.encounteredAt);
@@ -134,8 +247,13 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0,
+                      overflow: 'hidden',
                     }}>
-                      <User size={24} color="rgba(255,255,255,0.3)" />
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <User size={24} color="rgba(255,255,255,0.3)" />
+                      )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -160,9 +278,9 @@ export default function MatchesScreen({ onOpenChat, userId }: Props) {
           </div>
         )}
 
-        {matched.length === 0 && pending.length === 0 && nearbyUsers.length === 0 && (
+        {!loading && matched.length === 0 && pending.length === 0 && filteredNearbyUsers.length === 0 && (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-sub)' }}>
-            <Users2 />
+            <User size={48} color="rgba(255,255,255,0.15)" style={{ margin: '0 auto' }} />
             <p style={{ marginTop: 16 }}>No matches yet</p>
             <p style={{ fontSize: 13, marginTop: 4 }}>Swipe right on travelers you want to meet!</p>
           </div>
@@ -179,8 +297,4 @@ function formatTimeAgo(isoString: string): string {
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `${diffH}時間前`;
   return `${Math.floor(diffH / 24)}日前`;
-}
-
-function Users2() {
-  return <User size={48} color="rgba(255,255,255,0.15)" style={{ margin: '0 auto' }} />;
 }

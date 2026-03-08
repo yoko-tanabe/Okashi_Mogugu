@@ -16,6 +16,7 @@ export function useLocationTracking(userId: string | null) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { error } = await getSupabase().from('location_logs').insert({
+            id: crypto.randomUUID(),
             user_id: userId,
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,

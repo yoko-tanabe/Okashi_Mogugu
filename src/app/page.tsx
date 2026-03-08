@@ -179,6 +179,7 @@ export default function App() {
         {screen.type === 'chat' && (
           <ChatScreen
             matchId={screen.matchId}
+            userId={userId}
             onBack={() => setScreen({ type: 'matches' })}
           />
         )}

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit --pretty)",
+      "Bash(source /Users/maru/Desktop/0307/.env.local)",
+      "Bash(source /Users/maru/Desktop/0307/.env)",
+      "Bash(echo \"URL: $NEXT_PUBLIC_SUPABASE_URL\")",
+      "Bash(curl -s \"$NEXT_PUBLIC_SUPABASE_URL/rest/v1/profiles?select=id,name,nationality,avatar_url&id=neq.4c53a05e-9a1b-466c-89e5-a911db157568&limit=5\" -H \"apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY\")",
+      "Bash(curl -s \"$NEXT_PUBLIC_SUPABASE_URL/rest/v1/matches\" -H \"apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Content-Type: application/json\" -H \"Prefer: return=representation\" -d '[:*)",
+      "Bash(curl -s \"$NEXT_PUBLIC_SUPABASE_URL/rest/v1/messages\" -H \"apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Content-Type: application/json\" -H \"Prefer: return=representation\" -d '[:*)",
+      "Bash(curl -s \"$NEXT_PUBLIC_SUPABASE_URL/rest/v1/messages\" -H \"apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Content-Type: application/json\" -H \"Prefer: return=representation\" -d \"{\"\"match_id\"\":\"\"a0000001-0000-0000-0000-000000000001\"\",\"\"sender_id\"\":\"\"4c53a05e-9a1b-466c-89e5-a911db157568\"\",\"\"text\"\":\"\"test\"\"}\")",
+      "Bash(curl -s \"$NEXT_PUBLIC_SUPABASE_URL/rest/v1/matches?id=eq.a0000001-0000-0000-0000-000000000001\" -X PATCH -H \"apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY\" -H \"Content-Type: application/json\" -H \"Prefer: return=representation\" -d '{\"\"meet_confirmed_a\"\": false, \"\"meet_confirmed_b\"\": false, \"\"chat_open\"\": true, \"\"met_up\"\": false, \"\"meet_deadline\"\": null}')"
+    ]
+  }
+}
