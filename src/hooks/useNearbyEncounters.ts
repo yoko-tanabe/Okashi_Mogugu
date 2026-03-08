@@ -52,19 +52,23 @@ export function useNearbyEncounters(userId: string | null) {
           .from('location_logs')
           .select('user_id, latitude, longitude, recorded_at')
           .neq('user_id', userId)
-          .gte('recorded_at', since),
+          .gte('recorded_at', since)
+          .order('recorded_at', { ascending: false })
+          .limit(10000),
       ]);
 
       const myLogs = myResult.data;
       const otherLogs = otherResult.data;
+
+      console.log('[Encounter] myLogs count:', myLogs?.length, 'otherLogs count:', otherLogs?.length);
 
       if (!myLogs?.length || !otherLogs?.length) {
         setLoading(false);
         return;
       }
 
-      // Find users who were within 2m within 2 minutes
-      const matched = new Map<string, { encounteredAt: string; midLat: number; midLon: number }>();
+      // Find users who were within 3m within 2 minutes
+      const matched = new Map<string, { encounteredAt: string; midLat: number; midLon: number; distanceMeters: number }>();
 
       for (const mine of myLogs) {
         const myTime = new Date(mine.recorded_at).getTime();
@@ -73,15 +77,19 @@ export function useNearbyEncounters(userId: string | null) {
           const timeDiffMin = Math.abs(myTime - new Date(other.recorded_at).getTime()) / 60000;
           if (timeDiffMin > 2) continue;
           const dist = haversineMeters(mine.latitude, mine.longitude, other.latitude, other.longitude);
-          if (dist <= 2) {
+          console.log(`[Encounter] ${other.user_id} dist=${dist.toFixed(2)}m timeDiff=${timeDiffMin.toFixed(2)}min`);
+          if (dist <= 3) {
             matched.set(other.user_id, {
               encounteredAt: other.recorded_at,
               midLat: (mine.latitude + other.latitude) / 2,
               midLon: (mine.longitude + other.longitude) / 2,
+              distanceMeters: dist,
             });
           }
         }
       }
+
+      console.log('[Encounter] matched users:', Array.from(matched.keys()));
 
       if (matched.size === 0) {
         setLoading(false);
@@ -89,10 +97,11 @@ export function useNearbyEncounters(userId: string | null) {
       }
 
       const userIds = Array.from(matched.keys());
-      const { data: profiles } = await getSupabase()
+      const { data: profiles, error: profilesError } = await getSupabase()
         .from('profiles')
         .select('id, name, nationality, gender, age_group, hobby_tags, free_text, languages, travel_style, toku_points, avatar_url, video_links')
         .in('id', userIds);
+      console.log('[Encounter] profiles fetched:', profiles?.map(p => p.id), 'error:', profilesError);
 
       // Fetch addresses from Nominatim for each midpoint
       const addressMap = new Map<string, string>();
@@ -101,8 +110,7 @@ export function useNearbyEncounters(userId: string | null) {
           const info = matched.get(uid)!;
           try {
             const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${info.midLat}&lon=${info.midLon}`,
-              { headers: { 'Accept-Language': 'ja', 'User-Agent': 'OkashiMoguguApp/1.0' } }
+              `/api/reverse-geocode?lat=${info.midLat}&lon=${info.midLon}`
             );
             const json = await res.json();
             const a = json.address ?? {};
@@ -149,7 +157,7 @@ export function useNearbyEncounters(userId: string | null) {
           location: u.address || '',
           latitude: info.midLat,
           longitude: info.midLon,
-          distance_meters: 2,
+          distance_meters: Math.round(info.distanceMeters),
           expired: false,
         };
       });
