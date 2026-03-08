@@ -19,7 +19,7 @@ export const defaultState: AppState = {
     id: '', name: '', nationality: '', gender: '', birthDate: '', ageGroup: '',
     hobbyTags: [], freeText: '', videoLinks: [], languages: [], travelStyle: '',
     genderFilter: [], ageRangeMin: 18, ageRangeMax: 40, tokuPoints: 0,
-    avatarUrl: '', wantToMeetMode: true,
+    avatarUrl: '', wantToMeetMode: true, favoriteImages: [],
   },
   encounters: mockEncounterCards,
   matches: mockMatches,
