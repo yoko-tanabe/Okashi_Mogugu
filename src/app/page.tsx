@@ -181,6 +181,7 @@ export default function App() {
             matchId={screen.matchId}
             userId={userId}
             onBack={() => setScreen({ type: 'matches' })}
+            onNavigatePassport={() => setScreen({ type: 'passport' })}
           />
         )}
 

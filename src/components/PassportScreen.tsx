@@ -43,10 +43,13 @@ export default function PassportScreen() {
   const [currentPage, setCurrentPage] = useState(0);
   const [direction, setDirection] = useState(0);
   const [profiles, setProfiles] = useState<DbProfile[]>([]);
+  const [metProfiles, setMetProfiles] = useState<DbProfile[]>([]);
   const [myDbProfile, setMyDbProfile] = useState<DbProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [metCountries, setMetCountries] = useState<Set<string>>(new Set());
+  const [userEncounterTimes, setUserEncounterTimes] = useState<Map<string, string>>(new Map());
+  const [metUserTimes, setMetUserTimes] = useState<Map<string, string>>(new Map());
+  const [stampTab, setStampTab] = useState<'met' | 'nearby'>('met');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,21 +71,32 @@ export default function PassportScreen() {
         setMyDbProfile(myProfileData);
       }
 
-      // Fetch encounters where I am user_a or user_b
+      // Fetch encounters where I am user_a or user_b (with timestamps)
       const [encA, encB] = await Promise.all([
         getSupabase()
           .from('encounters')
-          .select('user_b_id')
+          .select('user_b_id, encountered_at')
           .eq('user_a_id', user.id),
         getSupabase()
           .from('encounters')
-          .select('user_a_id')
+          .select('user_a_id, encountered_at')
           .eq('user_b_id', user.id),
       ]);
 
-      const encounteredIds = new Set<string>();
-      encA.data?.forEach(e => encounteredIds.add(e.user_b_id));
-      encB.data?.forEach(e => encounteredIds.add(e.user_a_id));
+      // Map user ID -> latest encountered_at
+      const encounterTimeMap = new Map<string, string>();
+      encA.data?.forEach(e => {
+        const prev = encounterTimeMap.get(e.user_b_id);
+        if (!prev || e.encountered_at > prev) encounterTimeMap.set(e.user_b_id, e.encountered_at);
+      });
+      encB.data?.forEach(e => {
+        const prev = encounterTimeMap.get(e.user_a_id);
+        if (!prev || e.encountered_at > prev) encounterTimeMap.set(e.user_a_id, e.encountered_at);
+      });
+
+      const encounteredIds = new Set(encounterTimeMap.keys());
+
+      setUserEncounterTimes(encounterTimeMap);
 
       if (encounteredIds.size > 0) {
         const { data: encounteredProfiles } = await getSupabase()
@@ -92,9 +106,36 @@ export default function PassportScreen() {
 
         if (encounteredProfiles) {
           setProfiles(encounteredProfiles);
-          // 出会った人の出身国を世界地図用にセット
-          const countries = new Set(encounteredProfiles.map(p => p.nationality));
-          setMetCountries(countries);
+        }
+      }
+
+      // Fetch matches where met_up = true
+      const { data: metMatchRows } = await getSupabase()
+        .from('matches')
+        .select('user_a_id, user_b_id, matched_at')
+        .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`)
+        .eq('met_up', true);
+
+      if (metMatchRows && metMatchRows.length > 0) {
+        const metTimeMap = new Map<string, string>();
+        const metOtherIds = metMatchRows.map(row => {
+          const otherId = row.user_a_id === user.id ? row.user_b_id : row.user_a_id;
+          const prev = metTimeMap.get(otherId);
+          if (!prev || (row.matched_at && row.matched_at > prev)) {
+            metTimeMap.set(otherId, row.matched_at ?? '');
+          }
+          return otherId;
+        });
+        setMetUserTimes(metTimeMap);
+
+        const uniqueMetIds = [...new Set(metOtherIds)];
+        const { data: metProfileData } = await getSupabase()
+          .from('profiles')
+          .select('id, name, nationality, gender, age_group, toku_points, created_at')
+          .in('id', uniqueMetIds);
+
+        if (metProfileData) {
+          setMetProfiles(metProfileData);
         }
       }
 
@@ -109,18 +150,57 @@ export default function PassportScreen() {
 
   const toku = getTokuLevel(myProfile.tokuPoints);
   const myCountry = COUNTRIES.find(c => c.code === myProfile.nationality);
-  const uniqueCountries = new Set(profiles.map(p => p.nationality)).size;
 
-  // Group profiles by nationality for stamp display
+  // Active tab data
+  const activeProfiles = stampTab === 'met' ? metProfiles : profiles;
+  const activeTimesMap = stampTab === 'met' ? metUserTimes : userEncounterTimes;
+  const activeCountries = useMemo(() => new Set(activeProfiles.map(p => p.nationality)), [activeProfiles]);
+  const uniqueCountries = activeCountries.size;
+
+  // Group profiles by nationality for stamp display, with new countries first
+  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
   const countriesWithProfiles = useMemo(() => {
     const map = new Map<string, DbProfile[]>();
-    profiles.forEach(p => {
+    activeProfiles.forEach(p => {
       const list = map.get(p.nationality) ?? [];
       list.push(p);
       map.set(p.nationality, list);
     });
-    return Array.from(map.entries()).map(([code, people]) => ({ code, people }));
-  }, [profiles]);
+
+    // For each country, find the latest encounter/met time among its people
+    const entries = Array.from(map.entries()).map(([code, people]) => {
+      let latestEncounter = '';
+      people.forEach(p => {
+        const t = activeTimesMap.get(p.id) ?? '';
+        if (t > latestEncounter) latestEncounter = t;
+      });
+      return { code, people, latestEncounter };
+    });
+
+    // Sort: countries with encounters in last 24h first (newest first), then the rest
+    entries.sort((a, b) => {
+      const aIsNew = a.latestEncounter && new Date(a.latestEncounter).getTime() > oneDayAgo;
+      const bIsNew = b.latestEncounter && new Date(b.latestEncounter).getTime() > oneDayAgo;
+      if (aIsNew && !bIsNew) return -1;
+      if (!aIsNew && bIsNew) return 1;
+      if (aIsNew && bIsNew) return b.latestEncounter.localeCompare(a.latestEncounter);
+      return 0;
+    });
+
+    return entries;
+  }, [activeProfiles, activeTimesMap, oneDayAgo]);
+
+  // Set of country codes that are "new" (encountered within last 24h)
+  const newCountryCodes = useMemo(() => {
+    const codes = new Set<string>();
+    countriesWithProfiles.forEach(entry => {
+      if (entry.latestEncounter && new Date(entry.latestEncounter).getTime() > oneDayAgo) {
+        codes.add(entry.code);
+      }
+    });
+    return codes;
+  }, [countriesWithProfiles, oneDayAgo]);
 
   // Stable rotations per country
   const rotations = useMemo(() => {
@@ -148,7 +228,7 @@ export default function PassportScreen() {
   const getCountryName = (code: string) => COUNTRIES.find(c => c.code === code)?.name ?? code;
 
   const selectedPeople = selectedCountry
-    ? profiles.filter(p => p.nationality === selectedCountry)
+    ? activeProfiles.filter(p => p.nationality === selectedCountry)
     : [];
 
   if (loading) {
@@ -211,7 +291,7 @@ export default function PassportScreen() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 32 }}>
             <div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-light)' }}>{profiles.length}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-light)' }}>{activeProfiles.length}</div>
               <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>Meetings</div>
             </div>
             <div>
@@ -229,14 +309,52 @@ export default function PassportScreen() {
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-main)' }}>出会った人の出身国</h2>
-            {metCountries.size > 0 && (
+            {activeCountries.size > 0 && (
               <span style={{ fontSize: 12, color: 'var(--accent-light)', background: 'rgba(124,92,252,0.15)', padding: '3px 10px', borderRadius: 20 }}>
-                {metCountries.size}カ国
+                {activeCountries.size}カ国
               </span>
             )}
           </div>
+
+          {/* Tab switcher */}
+          <div style={{
+            display: 'flex',
+            background: 'var(--surface)',
+            borderRadius: 12,
+            padding: 3,
+            marginBottom: 16,
+            border: '1px solid var(--border)',
+          }}>
+            {([
+              { key: 'met' as const, label: 'We met' },
+              { key: 'nearby' as const, label: 'Nearby' },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setStampTab(tab.key); setCurrentPage(0); }}
+                style={{
+                  flex: 1,
+                  padding: '8px 0',
+                  borderRadius: 10,
+                  border: 'none',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: stampTab === tab.key
+                    ? 'linear-gradient(135deg, rgba(167,139,250,0.2), rgba(251,185,105,0.2))'
+                    : 'transparent',
+                  color: stampTab === tab.key ? 'var(--text-main)' : 'var(--text-sub)',
+                  boxShadow: stampTab === tab.key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <WorldMapView
-            metCountries={metCountries}
+            metCountries={activeCountries}
             onCountryClick={setSelectedCountry}
           />
         </div>
@@ -261,13 +379,14 @@ export default function PassportScreen() {
                   }}>
                     {currentStamps.map((entry, i) => {
                       const globalIdx = currentPage * STAMPS_PER_PAGE + i;
+                      const isNew = newCountryCodes.has(entry.code);
                       return (
                         <button
                           key={entry.code}
                           onClick={() => setSelectedCountry(entry.code)}
                           style={{
                             background: 'var(--surface)',
-                            border: '1px solid var(--border)',
+                            border: isNew ? '1px solid rgba(251,185,105,0.4)' : '1px solid var(--border)',
                             borderRadius: 16,
                             padding: 12,
                             textAlign: 'center',
@@ -277,6 +396,24 @@ export default function PassportScreen() {
                             color: 'inherit',
                           }}
                         >
+                          {isNew && (
+                            <div style={{
+                              position: 'absolute',
+                              top: -6,
+                              right: -6,
+                              background: 'linear-gradient(135deg, #FBB969, #F59E42)',
+                              color: '#fff',
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: '0.04em',
+                              padding: '2px 8px',
+                              borderRadius: 8,
+                              zIndex: 2,
+                              boxShadow: '0 2px 8px rgba(245,158,66,0.3)',
+                            }}>
+                              NEW
+                            </div>
+                          )}
                           {STAMP_IMAGES[entry.code] ? (
                             <img
                               src={STAMP_IMAGES[entry.code]}
@@ -295,7 +432,7 @@ export default function PassportScreen() {
                           <div style={{
                             position: 'absolute',
                             inset: 6,
-                            border: '2px dashed rgba(167,139,250,0.2)',
+                            border: `2px dashed ${isNew ? 'rgba(251,185,105,0.3)' : 'rgba(167,139,250,0.2)'}`,
                             borderRadius: 12,
                             pointerEvents: 'none',
                           }} />

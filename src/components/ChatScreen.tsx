@@ -36,9 +36,10 @@ interface Props {
   matchId: string;
   userId: string | null;
   onBack: () => void;
+  onNavigatePassport: () => void;
 }
 
-export default function ChatScreen({ matchId, userId, onBack }: Props) {
+export default function ChatScreen({ matchId, userId, onBack, onNavigatePassport }: Props) {
   const { dispatch } = useApp();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<DbMessage[]>([]);
@@ -249,6 +250,65 @@ export default function ChatScreen({ matchId, userId, onBack }: Props) {
 
     setMatchData(prev => prev ? { ...prev, metUp: true, meetDeadline: deadline } : prev);
 
+    // encounters にレコードを追加（PassportScreen のスタンプ用）
+    const otherUserId = matchData.userAId === userId ? matchData.userBId : matchData.userAId;
+    await getSupabase()
+      .from('encounters')
+      .insert({
+        id: crypto.randomUUID(),
+        user_a_id: userId,
+        user_b_id: otherUserId,
+        encountered_at: new Date().toISOString(),
+        location: '',
+        latitude: 0,
+        longitude: 0,
+        distance_meters: 0,
+        expired: false,
+      })
+      .then(({ error }) => {
+        if (error && error.code !== '23505') {
+          console.error('Failed to save encounter:', error);
+        }
+      });
+
+    // Add toku_history for both users (+30 points each)
+    const pointsToAdd = 30;
+    const userAId = matchData.userAId;
+    const userBId = matchData.userBId;
+
+    // Insert toku_history records
+    await Promise.all([
+      getSupabase().from('toku_history').insert({
+        id: crypto.randomUUID(),
+        user_id: userAId,
+        action: 'Met up',
+        points: pointsToAdd,
+      }),
+      getSupabase().from('toku_history').insert({
+        id: crypto.randomUUID(),
+        user_id: userBId,
+        action: 'Met up',
+        points: pointsToAdd,
+      }),
+    ]);
+
+    // Increment toku_points for both users
+    const { data: profiles } = await getSupabase()
+      .from('profiles')
+      .select('id, toku_points')
+      .in('id', [userAId, userBId]);
+
+    if (profiles) {
+      await Promise.all(
+        profiles.map(p =>
+          getSupabase()
+            .from('profiles')
+            .update({ toku_points: (p.toku_points ?? 0) + pointsToAdd })
+            .eq('id', p.id)
+        )
+      );
+    }
+
     // Also update local store for stamp/toku
     dispatch({ type: 'MET_UP', matchId });
   };
@@ -267,7 +327,8 @@ export default function ChatScreen({ matchId, userId, onBack }: Props) {
   const otherConfirmed = isMeUserA ? matchData.meetConfirmedB : matchData.meetConfirmedA;
   const bothConfirmed = myConfirmed && otherConfirmed;
   const timerActive = matchData.meetDeadline !== null;
-  const chatDisabled = !matchData.chatOpen;
+  const timerExpired = matchData.metUp && timeLeft !== null && timeLeft <= 0;
+  const chatDisabled = !matchData.chatOpen || timerExpired;
 
   return (
     <div className="page-container" style={{ background: 'var(--bg)', display: 'flex', flexDirection: 'column', height: '100dvh' }}>
@@ -333,24 +394,64 @@ export default function ChatScreen({ matchId, userId, onBack }: Props) {
       </div>
 
       {/* Timer bar - shown after "We met!" is pressed */}
-      {timerActive && timeLeft !== null && matchData.metUp && (
-        <div style={{
-          padding: '10px 16px',
-          background: timeLeft < 600 ? 'rgba(239,68,68,0.1)' : 'var(--surface-active)',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          flexShrink: 0,
-        }}>
-          <Clock size={16} color={timeLeft < 600 ? '#EF4444' : 'var(--accent-light)'} />
-          <span style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: timeLeft < 600 ? '#EF4444' : 'var(--accent-light)' }}>
-            {formatTime(timeLeft)}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>remaining</span>
-        </div>
-      )}
+      {timerActive && timeLeft !== null && matchData.metUp && (() => {
+        const total = 3600;
+        const progress = Math.min(1, (total - timeLeft) / total);
+        const isLow = timeLeft < 600;
+        const isUrgent = timeLeft < 120;
+        return (
+          <div style={{
+            padding: '14px 20px',
+            background: 'rgba(255,255,255,0.03)',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            flexShrink: 0,
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 10,
+            }}>
+              <span style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: isUrgent ? 'rgba(255,69,58,0.8)' : 'rgba(255,255,255,0.4)',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+              }}>
+                {isUrgent ? 'Ending soon' : 'Time remaining'}
+              </span>
+              <span style={{
+                fontSize: 28,
+                fontWeight: 200,
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '0.02em',
+                color: isUrgent ? 'rgba(255,69,58,0.9)' : isLow ? 'rgba(255,214,110,0.85)' : 'rgba(255,255,255,0.7)',
+              }}>
+                {formatTime(timeLeft)}
+              </span>
+            </div>
+            <div style={{
+              height: 3,
+              borderRadius: 2,
+              background: 'rgba(255,255,255,0.06)',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%',
+                borderRadius: 2,
+                width: `${(1 - progress) * 100}%`,
+                background: isUrgent
+                  ? 'rgba(255,69,58,0.7)'
+                  : isLow
+                    ? 'linear-gradient(90deg, rgba(255,214,110,0.6), rgba(255,159,67,0.6))'
+                    : 'linear-gradient(90deg, rgba(255,255,255,0.15), rgba(255,255,255,0.25))',
+                transition: 'width 1s linear, background 2s ease',
+              }} />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
@@ -458,8 +559,8 @@ export default function ChatScreen({ matchId, userId, onBack }: Props) {
           </div>
         )}
 
-        {/* Chat declined message */}
-        {chatDisabled && (
+        {/* Chat disabled message (declined or timer expired) */}
+        {chatDisabled && !matchData.metUp && (
           <div style={{
             display: 'flex',
             justifyContent: 'center',
@@ -479,6 +580,32 @@ export default function ChatScreen({ matchId, userId, onBack }: Props) {
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>
                 このチャットでのメッセージ送信は終了しました
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Timer expired message */}
+        {timerExpired && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginBottom: 12,
+            marginTop: 8,
+          }}>
+            <div style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 16,
+              padding: '12px 20px',
+              textAlign: 'center',
+              maxWidth: '85%',
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 2 }}>
+                This chat has ended
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-hint)' }}>
+                このチャットは終了しました
               </div>
             </div>
           </div>
@@ -528,20 +655,40 @@ export default function ChatScreen({ matchId, userId, onBack }: Props) {
           }}>
             +30 Toku points earned
           </div>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            marginTop: 12,
-            padding: '6px 16px',
-            borderRadius: 20,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            fontSize: 12,
-            color: 'var(--text-sub)',
-          }}>
-            Stamp added to passport
-          </div>
+          {timerExpired ? (
+            <button
+              onClick={onNavigatePassport}
+              style={{
+                marginTop: 16,
+                padding: '12px 32px',
+                borderRadius: 14,
+                background: 'linear-gradient(135deg, #A78BFA, #FBB969)',
+                border: 'none',
+                color: '#fff',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                letterSpacing: '0.01em',
+              }}
+            >
+              View Passport
+            </button>
+          ) : (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 12,
+              padding: '6px 16px',
+              borderRadius: 20,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              fontSize: 12,
+              color: 'var(--text-sub)',
+            }}>
+              Stamp added to passport
+            </div>
+          )}
         </div>
       )}
 
