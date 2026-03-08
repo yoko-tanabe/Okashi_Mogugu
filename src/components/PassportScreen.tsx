@@ -1,11 +1,14 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Share2, X } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 import { getTokuLevel, COUNTRIES } from '@/lib/constants';
 import AmbientGlow from './AmbientGlow';
+
+const WorldMapView = dynamic(() => import('./WorldMapView'), { ssr: false });
 
 const STAMPS_PER_PAGE = 4;
 
@@ -35,6 +38,11 @@ interface DbProfile {
   created_at: string;
 }
 
+interface DbEncounter {
+  user_a_id: string;
+  user_b_id: string;
+}
+
 export default function PassportScreen() {
   const { state } = useApp();
   const [currentPage, setCurrentPage] = useState(0);
@@ -43,6 +51,7 @@ export default function PassportScreen() {
   const [myDbProfile, setMyDbProfile] = useState<DbProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [metCountries, setMetCountries] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,6 +65,26 @@ export default function PassportScreen() {
         if (user) {
           setMyDbProfile(allProfiles.find(p => p.id === user.id) ?? null);
           setProfiles(allProfiles.filter(p => p.id !== user.id));
+
+          // Encounterテーブルから会った相手の出身国を取得
+          const { data: encounters } = await getSupabase()
+            .from('encounters')
+            .select('user_a_id, user_b_id')
+            .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
+
+          if (encounters) {
+            const partnerIds = new Set(
+              (encounters as DbEncounter[]).map(e =>
+                e.user_a_id === user.id ? e.user_b_id : e.user_a_id
+              )
+            );
+            const countries = new Set(
+              allProfiles
+                .filter(p => partnerIds.has(p.id))
+                .map(p => p.nationality)
+            );
+            setMetCountries(countries);
+          }
         } else {
           setProfiles(allProfiles);
         }
@@ -185,6 +214,22 @@ export default function PassportScreen() {
               <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>Toku pts</div>
             </div>
           </div>
+        </div>
+
+        {/* World map */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-main)' }}>出会った人の出身国</h2>
+            {metCountries.size > 0 && (
+              <span style={{ fontSize: 12, color: 'var(--accent-light)', background: 'rgba(124,92,252,0.15)', padding: '3px 10px', borderRadius: 20 }}>
+                {metCountries.size}カ国
+              </span>
+            )}
+          </div>
+          <WorldMapView
+            metCountries={metCountries}
+            onCountryClick={setSelectedCountry}
+          />
         </div>
 
         {/* Stamp pages */}
